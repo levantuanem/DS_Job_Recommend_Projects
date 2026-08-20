@@ -1,0 +1,18 @@
+project:
+  name: DS_Job_Level_Recommend
+  random_state: 42
+
+data:
+  raw_path: data/raw/postings.csv
+  processed_path: data/processed/postings_processed.csv
+
+target:
+  column: formatted_experience_level
+
+features:
+  text_column: text
+
+model:
+  name: random_forest
+  n_estimators: 200
+  random_state: 42
