@@ -27,6 +27,22 @@ SKILLS = {
     "management": ["management", "project management"]
 }
 
+COMPILED_SKILLS = {
+    skill: [
+        re.compile(rf"(?<!\w){re.escape(pattern.lower())}(?!\w)")
+        for pattern in patterns
+    ]
+    for skill, patterns in SKILLS.items()
+}
+
+SKILL_EXPRESSIONS = {
+    skill: "|".join(
+        rf"(?<!\w){re.escape(pattern.lower())}(?!\w)"
+        for pattern in patterns
+    )
+    for skill, patterns in SKILLS.items()
+}
+
 def normalize_text(text) -> str:
     if pd.isna(text):
         return ""
@@ -34,11 +50,10 @@ def normalize_text(text) -> str:
     text = re.sub(r"\s+", " ", text)
     return f" {text.strip()} "
 
-def contains_skill(text: str, patterns: list[str]) -> int:
+def contains_skill(text: str, patterns: list[re.Pattern[str]]) -> int:
     normalized = normalize_text(text)
-    for pattern in patterns:
-        pattern = pattern.lower()
-        if pattern in normalized:
+    for expression in patterns:
+        if expression.search(normalized):
             return 1
     return 0
 
@@ -60,16 +75,13 @@ def extract_skill_features(
         .fillna("")
         .astype(str)
         .agg(" ".join, axis=1))
-    for skill, patterns in SKILLS.items():
-        result[f"has_{skill}"] = (
-            result["skill_text"]
-            .map(
-                lambda text: contains_skill(
-                    text,
-                    patterns,
-                )
-            )
-        )
+    for skill, expression in SKILL_EXPRESSIONS.items():
+        result[f"has_{skill}"] = result["skill_text"].str.contains(
+            expression,
+            case=False,
+            na=False,
+            regex=True,
+        ).astype("int8")
 
     skill_columns = [
         column

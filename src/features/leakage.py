@@ -4,7 +4,19 @@ SUSPICIOUS_POSTING_ENGAGEMENT_FEATURES = {
     "views",
     "applies",
     "application_rate",
-    "view_to_apply_ratio"}
+    "view_to_apply_ratio",
+    "closed_time",
+}
+
+
+def drop_leakage_features(
+    df: pd.DataFrame,
+    columns: set[str] | None = None,
+) -> pd.DataFrame:
+    columns_to_drop = columns or SUSPICIOUS_POSTING_ENGAGEMENT_FEATURES
+    return df.drop(
+        columns=[column for column in columns_to_drop if column in df.columns]
+    )
 
 def check_leakage(
     df: pd.DataFrame,

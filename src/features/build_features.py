@@ -3,6 +3,8 @@ from .numerical import create_numerical_features
 from .categorical import prepare_categorical_features
 from .text_features import create_text_features
 from .skill_extraction import extract_skill_features
+from .temporal import create_temporal_features
+from .leakage import drop_leakage_features
 
 TARGET_COLUMN = "formatted_experience_level"
 
@@ -19,7 +21,11 @@ TEXT_COLUMNS = ["title",
                 "description", 
                 "skills_desc"]
 
-def build_features(data: pd.DataFrame ) -> tuple[pd.DataFrame, pd.Series]:
+def build_features(
+    data: pd.DataFrame,
+    *,
+    include_posting_engagement: bool = True,
+) -> tuple[pd.DataFrame, pd.Series]:
     # ========================================================
     # 1. Check target
     # ========================================================
@@ -35,8 +41,17 @@ def build_features(data: pd.DataFrame ) -> tuple[pd.DataFrame, pd.Series]:
     # 3. Numerical Feature Engineering
     # ========================================================
     data = create_numerical_features(data)
+
+    if not include_posting_engagement:
+        data = drop_leakage_features(data)
+
     # ========================================================
-    # 4. Categorical Feature Engineering
+    # 4. Temporal Feature Engineering
+    # ========================================================
+    data = create_temporal_features(data)
+
+    # ========================================================
+    # 5. Categorical Feature Engineering
     # ========================================================
     existing_categorical = [
         column
@@ -45,7 +60,7 @@ def build_features(data: pd.DataFrame ) -> tuple[pd.DataFrame, pd.Series]:
     data = prepare_categorical_features(data, existing_categorical)
 
     # ========================================================
-    # 5. Text Feature Engineering
+    # 6. Text Feature Engineering
     # ========================================================
 
     existing_text = [
@@ -55,19 +70,19 @@ def build_features(data: pd.DataFrame ) -> tuple[pd.DataFrame, pd.Series]:
     data = create_text_features(data, existing_text)
 
     # ========================================================
-    # 6. Skill Extraction
+    # 7. Skill Extraction
     # ========================================================
 
     data = extract_skill_features(data, existing_text)
 
     # ========================================================
-    # 7. Separate X and y
+    # 8. Separate X and y
     # ========================================================
     y = data[TARGET_COLUMN].copy()
     X = data.drop( columns=[TARGET_COLUMN]).copy()
 
     # ========================================================
-    # 8. Remove helper columns
+    # 9. Remove helper columns
     # ========================================================
 
     helper_columns = ["skill_text"]
@@ -80,6 +95,6 @@ def build_features(data: pd.DataFrame ) -> tuple[pd.DataFrame, pd.Series]:
     )
 
     # ========================================================
-    # 9. Return
+    # 10. Return
     # ========================================================
     return X, y

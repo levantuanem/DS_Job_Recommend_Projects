@@ -5,6 +5,8 @@ from src.features.text_features import create_text_features
 from src.features.skill_extraction import extract_skill_features
 from src.features.categorical import prepare_categorical_features
 from src.features.leakage import check_leakage
+from src.features.preprocessing import build_preprocessor
+from src.features.temporal import create_temporal_features
 
 
 # ============================================================
@@ -126,6 +128,46 @@ def test_application_rate():
     result = create_numerical_features(df)
 
     assert result.loc[0, "application_rate"] == 0.1
+
+
+# ============================================================
+# Temporal Feature Tests
+# ============================================================
+
+
+def test_temporal_features():
+
+    start = pd.Timestamp("2024-01-05", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "listed_time": [int(start.timestamp() * 1000)],
+            "expiry": [int((start + pd.Timedelta(days=3)).timestamp() * 1000)],
+        }
+    )
+
+    result = create_temporal_features(df)
+
+    assert result.loc[0, "duration_days"] == 3
+    assert result.loc[0, "post_month"] == 1
+    assert result.loc[0, "post_dayofweek"] == 4
+    assert result.loc[0, "is_weekend"] == 0
+
+
+# ============================================================
+# Preprocessing Tests
+# ============================================================
+
+
+def test_preprocessor_transforms_features():
+
+    df = create_test_dataframe()
+    X, _ = build_features(df)
+
+    preprocessor = build_preprocessor(X)
+    transformed = preprocessor.fit_transform(X)
+
+    assert transformed.shape[0] == len(X)
+    assert transformed.shape[1] > 0
 
 
 # ============================================================
@@ -281,6 +323,23 @@ def test_skill_count():
     assert result.loc[0, "skill_count"] > 0
 
 
+def test_skill_matching_uses_word_boundaries():
+
+    df = pd.DataFrame(
+        {
+            "title": ["JavaScript Developer", "R Analyst", "MySQL Developer"],
+            "description": ["JavaScript", "R programming", "MySQL"],
+        }
+    )
+
+    result = extract_skill_features(df, ["title", "description"])
+
+    assert result.loc[0, "has_javascript"] == 1
+    assert result.loc[0, "has_java"] == 0
+    assert result.loc[1, "has_r"] == 1
+    assert result.loc[2, "has_sql"] == 0
+
+
 # ============================================================
 # Leakage Tests
 # ============================================================
@@ -301,6 +360,21 @@ def test_leakage_detection():
 
     assert "views" in report["suspicious_features"]
     assert "applies" in report["suspicious_features"]
+
+
+def test_build_features_can_remove_posting_engagement():
+
+    df = create_test_dataframe()
+
+    X, _ = build_features(
+        df,
+        include_posting_engagement=False,
+    )
+
+    assert "views" not in X.columns
+    assert "applies" not in X.columns
+    assert "application_rate" not in X.columns
+    assert "view_to_apply_ratio" not in X.columns
 
 
 # ============================================================
