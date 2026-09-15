@@ -567,7 +567,7 @@ Answer questions such as:
 * Which skills characterize each job level?
 * Which locations have the most jobs?
 * Which locations have higher salaries?
-* Which job levels contain more remote positions?
+* Which job levels contain more remote positions?f
 ---
 
 # 8. Member 3 — Feature Engineering & NLP
