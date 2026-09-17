@@ -41,3 +41,40 @@ def add_text_features(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     return df
+
+
+if __name__ == "__main__":
+
+    df = pd.DataFrame({
+        "title": [
+            "Python Developer",
+            "Data Scientist"],
+        "description": [
+            "Develop Python applications and APIs",
+            "Build machine learning models"],
+        "skills_desc": [
+            "Python, FastAPI",
+            "Python, Machine Learning"]
+    })
+
+    result = add_text_features(df)
+
+    print("\n=== ORIGINAL DATA ===")
+    print(df)
+
+    print("\n=== TEXT FEATURES ===")
+    print(result)
+
+    print("\n=== NEW FEATURES ===")
+    print(
+        result[
+            [
+                "title_length",
+                "description_length",
+                "skills_length",
+                "description_word_count",
+                "skills_word_count",
+                "combined_text"
+            ]
+        ]
+    )
