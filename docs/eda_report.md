@@ -1,77 +1,82 @@
-# Báo Cáo Phân Tích Khám Phá Dữ Liệu (EDA Report)
-**Dự án:** DS Job Recommend  
-**File dữ liệu:** `data/processed/postings_clean.csv`  
-**Biến mục tiêu:** `formatted_experience_level`
+# Báo Cáo Phân Tích Khám Phá Dữ Liệu (Exploratory Data Analysis Report)
+**Project:** LinkedIn Job Postings — Job Level Analysis & Prediction  
+**Branch:** `feature/visualization`  
+**Vai trò:** Data Analyst / Visualization Engineer (NGƯỜI 2)  
 
 ---
 
-## 1. Environment Setup & Data Loading
-- Dataset gồm 123,849 dòng × 31 cột chứa thông tin tuyển dụng LinkedIn.
-- Sử dụng `info()`, `describe()` để nắm bắt thống kê cơ bản.
-- Kiểm tra Missing Values: nhiều cột có tỷ lệ khuyết cao (salary, applies).
-- Kiểm tra Duplicate: tỷ lệ trùng lặp thấp.
+## 1. Tổng quan Quá trình Khám phá Dữ liệu (Executive Summary)
 
-## 2. Univariate Analysis (Numerical & Categorical)
-### Numerical (Histplot + KDE)
-- Các cột `normalized_salary`, `views`, `applies` đều có phân phối **lệch phải (right-skewed)**.
-- Phần lớn tin tuyển dụng có mức lương và tương tác ở mức trung bình - thấp.
+Dữ liệu phân tích được tiếp nhận từ quá trình làm sạch (`postings_clean.csv`, `job_skills_clean.csv`) gồm **123,849 dòng** và **31 cột**. Quá trình EDA được thực hiện nhằm cung cấp cái nhìn toàn diện về phân phối, mối quan hệ giữa các biến số, phân tích văn bản và kỹ năng. 
 
-### Categorical (Countplot)
-- **`formatted_work_type`:** Full-time chiếm đa số (~81%), tiếp theo Contract, Part-time.
-- **`remote_allowed`:** Chỉ ~12% cho phép Remote, còn lại là Onsite/Hybrid.
-- **`pay_period`:** Chủ yếu trả lương YEARLY (~65%) và HOURLY (~33%).
+### Các điểm sáng của quá trình phân tích:
+1. **Lương là đặc trưng cực kỳ quan trọng:** Trung vị mức lương (`normalized_salary`) tăng tuyến tính và rõ rệt qua các cấp bậc kinh nghiệm, cho thấy đây là một "hard feature" giúp mô hình phân loại tốt (từ Internship thấp nhất đến Executive cao nhất).
+2. **Khám phá Đa cộng tuyến:** Phát hiện sự tương quan gần như tuyệt đối ($r \approx 1.0$) giữa các biến `min_salary`, `med_salary`, `max_salary` và `normalized_salary`.
+3. **Mất cân bằng dữ liệu mục tiêu nghiêm trọng:** Tỷ lệ chênh lệch giữa lớp lớn nhất (Mid-Senior) và lớp nhỏ nhất (Executive) lên tới 34:1.
+4. **Phân tích Văn bản & Kỹ năng (Text & Skills):** Có sự khác biệt rõ rệt về độ dài mô tả công việc và bộ kỹ năng yêu cầu giữa nhóm Entry-level (thiên về kỹ thuật) và nhóm Executive (thiên về quản lý, kinh doanh).
 
-## 3. Feature ↔ Feature Analysis (Correlation & Multicollinearity)
-- Sử dụng **Heatmap** để đo tương quan giữa các biến số.
-- **Phát hiện đa cộng tuyến:** `min_salary`, `max_salary`, `normalized_salary` có tương quan rất gần 1 → thông tin trùng lặp → chỉ nên giữ lại `normalized_salary`.
-- `views` và `applies` có tương quan thuận vừa phải (~0.65).
+---
 
-## 4. Feature ↔ Target Analysis (Group Comparison)
-- Sử dụng **Boxplot** và **Barplot** so sánh lương theo cấp bậc.
-- Lương tăng rõ rệt theo thứ tự: Executive > Director > Mid-Senior > Associate > Entry > Internship.
-- Chứng tỏ `normalized_salary` là đặc trưng quan trọng để dự đoán biến mục tiêu.
+## 2. Chi tiết Phân tích Đặc trưng & Biến Mục Tiêu (Feature & Target Analysis)
 
-## 5. Categorical ↔ Numerical Analysis
-- **Work Type vs Salary (Boxplot):** Mức lương khác nhau rõ rệt giữa các loại hình công việc.
-- **Remote vs Salary (Boxplot):** Vị trí cho phép Remote thường có mức lương cao hơn so với Onsite.
+Quá trình phân tích được chia thành các hướng tiếp cận chi tiết, đánh giá tác động của từng nhóm đặc trưng lên biến mục tiêu `formatted_experience_level`.
 
-## 6. Categorical ↔ Categorical Analysis (Crosstab)
-- Sử dụng **Crosstab** và **Stacked Bar Chart** để xem tỷ lệ phần trăm.
-- **Work Type theo Level:** Executive/Director hầu hết là Full-time; Internship có tỷ lệ Part-time cao hơn.
-- **Remote theo Level:** Vị trí cấp cao (Executive, Director) có tỷ lệ Remote cao hơn Entry/Internship.
+### 2.1 Phân tích Đơn biến (Univariate Analysis)
+- **Biến số (Numerical):** Các biến `normalized_salary`, `views`, và `applies` đều có phân phối **lệch phải rất mạnh (right-skewed)**. Hầu hết các tin tuyển dụng tập trung ở mức lương, tương tác trung bình - thấp, và xuất hiện một phần đuôi dài (long-tail) ở các vị trí cấp cao.
+- **Biến phân loại (Categorical):** 
+  - Khối lượng công việc chủ yếu là **Full-time** (chiếm ~81%).
+  - Lương theo năm (**YEARLY**) chiếm ưu thế (~65%), theo giờ (**HOURLY**) chiếm khoảng 33%.
+  - Chỉ có **~12%** vị trí cho phép **Remote**, còn lại là On-site hoặc Hybrid.
 
-## 7. Multivariate Analysis (Scatter Matrix)
-- Sử dụng **Scatter Matrix** để xem quan hệ giữa nhiều biến số cùng lúc.
-- Views và Applies có xu hướng tăng cùng nhau.
-- Lương không có tương quan tuyến tính rõ rệt với lượt xem/ứng tuyển.
+### 2.2 Tương quan & Đa cộng tuyến (Correlation & Multicollinearity)
+- Sử dụng **Ma trận Tương quan (Heatmap)** để phân tích các biến số.
+- Các cột `min_salary`, `max_salary`, và `normalized_salary` có độ tương quan rất cao. 
+- **Quyết định xử lý:** Để tránh hiện tượng đa cộng tuyến (Multicollinearity) làm nhiễu mô hình, chỉ nên giữ lại cột `normalized_salary` cho quá trình huấn luyện.
 
-## 8. Outlier Analysis & Log Transformation
-- **Boxplot subplots:** Các biến salary có nhiều outlier (lương cấp cao Director/Executive).
-- **Log Transformation:** Áp dụng `log(1+x)` giúp giảm Skewness đáng kể, đưa phân phối về dạng gần chuẩn hơn → giúp mô hình học tốt hơn.
+### 2.3 Phân tích Biến Mục Tiêu (Feature ↔ Target Analysis)
+- Các biểu đồ **Boxplot** và **Barplot** cho thấy sự chênh lệch rõ ràng: Lương trung bình của Executive có thể gấp 3-4 lần so với Internship.
+- Phân tích Crosstab chỉ ra rằng: Các vị trí cấp cao (Director, Executive) có tỷ lệ Full-time và cho phép làm Remote cao hơn hẳn so với các vị trí mới vào nghề.
 
-## 9. Class Imbalance Analysis & Modeling Recommendations
-- **Mất cân bằng lớp:** Mid-Senior và Entry chiếm đa số; Executive và Internship rất ít.
-- **Tỷ lệ mất cân bằng:** khoảng 34:1.
-- **Khuyến nghị:**
-  1. Dùng Stratified K-Fold để bảo toàn tỷ lệ lớp.
-  2. Dùng F1-Macro hoặc Balanced Accuracy thay vì Accuracy.
-  3. Áp dụng SMOTE hoặc class_weight="balanced".
+### 2.4 Phân tích Phân phối Lệch & Ngoại lệ (Outliers & Skewness)
+- **Phát hiện:** Subplots Boxplot phát hiện rất nhiều giá trị ngoại lệ trên các cột lương. Tuy nhiên, đây là **Ngoại lệ hợp lệ (Genuine Extreme Values)** phản ánh lương của các vị trí cấp cao, hoàn toàn không phải lỗi dữ liệu.
+- **Xử lý:** Áp dụng phép biến đổi Logarit (`np.log1p(x)`) cho các biến số lệch phải. Độ lệch (Skewness) của lương giảm mạnh từ $2.68$ xuống gần mức $0$, đưa phân phối về dạng hình chuông (chuẩn) giúp các thuật toán Machine Learning hội tụ nhanh và tốt hơn.
 
-## 10. Skill Analysis
-- Từ file `job_skills_clean.csv`, thống kê **Top 15 kỹ năng phổ biến nhất**.
-- Phân tích kỹ năng theo từng cấp bậc kinh nghiệm:
-  - Entry/Internship: đòi hỏi nhiều kỹ năng kỹ thuật (IT, ENG).
-  - Director/Executive: đòi hỏi nhiều kỹ năng quản lý (MGMT, SALE, FIN).
+---
 
-## 11. Text Analysis
-- Tính toán độ dài tiêu đề (`title_length`), độ dài mô tả (`desc_length`), số từ mô tả (`desc_word_count`).
-- Dùng **Histplot** để vẽ phân phối độ dài văn bản.
-- Dùng **Boxplot** so sánh độ dài mô tả theo cấp bậc: vị trí cấp cao có mô tả dài hơn.
+## 3. Phân Tích Thông Tin Phi Cấu Trúc (Unstructured Data Analysis)
 
-## 12. Business Insights & Executive Dashboard
-- Tổng hợp các phát hiện chính:
-  1. Mid-Senior level được tuyển nhiều nhất, Executive ít nhất.
-  2. Lương trung vị tăng dần theo cấp bậc.
-  3. Đa cộng tuyến giữa các cột salary → giữ lại normalized_salary.
-  4. Class imbalance nghiêm trọng → bắt buộc dùng SMOTE/class_weight.
-- **Executive Dashboard** gồm 4 biểu đồ tổng hợp trên 1 hình: phân bố target, salary by level, correlation heatmap, views vs applies scatter.
+Để khai thác tối đa thông tin từ tin tuyển dụng, quá trình EDA đã phân tích sâu vào các trường dữ liệu phi cấu trúc như kỹ năng và mô tả văn bản:
+
+### 3.1 Phân tích Kỹ năng (Skill Analysis)
+- Kết hợp với bảng `job_skills_clean.csv`, xác định được Top 3 nhóm kỹ năng phổ biến nhất trên thị trường là **IT (Công nghệ thông tin)**, **SALE (Bán hàng)**, và **MGMT (Quản lý)**.
+- **Insight thú vị:** Nhóm Entry/Internship tập trung cực độ vào các kỹ năng công cụ/chuyên môn (IT, ENG), trong khi nhóm Director/Executive yêu cầu các kỹ năng vĩ mô (MGMT, SALE, FIN, MKTG).
+
+### 3.2 Phân tích Đặc trưng Văn bản (Text Analysis)
+- Kỹ thuật Feature Extraction cơ bản được áp dụng để tạo ra 3 biến mới: `title_length`, `desc_length`, và `desc_word_count`.
+- **Đánh giá:** Boxplot cho thấy vị trí cấp bậc càng cao thì xu hướng viết mô tả công việc (`desc_length`) càng dài và chi tiết hơn. Đây là các tính năng (features) tiềm năng giúp mô hình dự đoán chính xác hơn.
+
+---
+
+## 4. Đánh Giá Chất Lượng Đặc Trưng (Feature Evaluation Summary)
+
+Bảng điều khiển tổng hợp (4-Panel Overview) đã được xây dựng tại phần 11 để đánh giá tổng thể chất lượng của các biến số trước khi đưa vào mô hình học máy:
+
+| Tiêu chí | Nội dung Đánh giá | Mức độ Cảnh báo (Theo màu biểu đồ) | Đề xuất Xử lý (Cho NGƯỜI 3) |
+|---|---|---|---|
+| **1. Missing Ratio** | Tỷ lệ % giá trị rỗng (NaN) | Lương thiếu khoảng 56%, Views thiếu trung bình. | Cần áp dụng kỹ thuật Imputation (ví dụ: Median) hoặc mã hóa là một giá trị riêng. |
+| **2. Skewness** | Độ lệch phân phối | `applies` và `views` có độ lệch lớn (Cảnh báo Đỏ). | Bắt buộc thực hiện Log-Transform để nén các giá trị lệch. |
+| **3. Outliers** | Số lượng ngoại lệ (IQR) | Hàng chục ngàn giá trị nằm ngoài ranh giới 1.5*IQR. | Khuyến nghị sử dụng Robust Scaler thay vì Standard Scaler để tránh bị nhiễu. |
+| **4. Target Correlation** | Mức độ tương quan với Target | `normalized_salary` tương quan tốt (Xanh). `views` / `applies` tương quan yếu. | Giữ nguyên các biến lương, cân nhắc loại bỏ các tương tác yếu nếu gây nhiễu mô hình. |
+
+---
+
+## 5. Kết Luận & Định Hướng Mô Hình Hóa (Modeling Recommendations)
+
+### Cảnh báo nghiêm trọng: Mất cân bằng dữ liệu (Class Imbalance)
+- Dữ liệu mục tiêu bị mất cân bằng trầm trọng với tỷ lệ **34:1**. Lớp đa số (Mid-Senior) sẽ áp đảo quá trình học của mô hình, khiến mô hình thiên vị lớp này và bỏ qua các lớp thiểu số (Executive, Internship).
+
+### Bàn giao & Khuyến nghị cho Nhóm Feature Engineering & Modeling (NGƯỜI 3 & 4):
+Để mô hình phân loại đạt chất lượng thực tiễn, nhóm Modeling cần áp dụng nghiêm ngặt các quy tắc sau:
+1. **Xử lý Mất cân bằng:** Bắt buộc áp dụng phương pháp như **SMOTE** (Synthetic Minority Over-sampling Technique) để sinh thêm mẫu cho lớp thiểu số, hoặc thiết lập tham số `class_weight='balanced'`.
+2. **Chiến lược Chia dữ liệu:** Bắt buộc sử dụng kỹ thuật **Stratified K-Fold** khi chia tập Train/Test để giữ nguyên tỷ lệ phân phối gốc của các cấp bậc.
+3. **Đánh giá Hiệu suất:** Tuyệt đối không dùng chỉ số `Accuracy` (độ chính xác tổng thể). Thay vào đó, lấy **F1-Macro** hoặc **Balanced Accuracy** làm hệ quy chiếu để đánh giá khả năng dự đoán công bằng trên tất cả 6 cấp bậc công việc.

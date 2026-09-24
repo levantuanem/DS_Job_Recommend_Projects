@@ -1,0 +1,4 @@
+import pandas as pd import numpy as np
+data = pd.Series(np.arange(6),
+                    index=[["a", "a", "a", "b", "b", "b"], [1, 2, 3, 1, 2, 3]])
+print(data["b"].tolist())
