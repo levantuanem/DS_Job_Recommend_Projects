@@ -1,9 +1,23 @@
+"""
+src/models/tune.py
+
+Member 4 - STEP 2: Hyperparameter tuning of the baseline (Logistic Regression only).
+
+Reads models/best_model_info.json (written by train.py - always
+"logistic_regression_baseline" now), runs RandomizedSearchCV with
+StratifiedKFold cross-validation (scoring = Macro-F1, per README 9.6/9.9),
+and saves the tuned estimator as models/best_model.pkl - the ONE file
+evaluate.py and predict.py use downstream.
+
+Run (from the repository root):
+    python -m src.models.tune
+"""
+
 import json
 
 import joblib
 from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 
 from src.models.utils import (
     get_train_test_data,
@@ -13,18 +27,12 @@ from src.models.utils import (
     TUNING_RESULTS_PATH,
 )
 
-try:
-    from xgboost import XGBClassifier
-    HAS_XGB = True
-except ImportError:
-    HAS_XGB = False
-
 RANDOM_STATE = 42
 CV_FOLDS = 5
-N_ITER = 25  
+N_ITER = 25  # RandomizedSearchCV budget - raise for a more thorough (slower) search
 
 # =========================
-#Hyperparameter search spaces (one per candidate model)
+# README 9.6 Hyperparameter search space - Logistic Regression only
 # =========================
 PARAM_GRIDS = {
     "logistic_regression_baseline": (
@@ -34,32 +42,7 @@ PARAM_GRIDS = {
             "solver": ["lbfgs", "saga"],
         },
     ),
-    "random_forest": (
-        RandomForestClassifier(class_weight="balanced", random_state=RANDOM_STATE, n_jobs=-1),
-        {
-            "n_estimators": [200, 300, 500],
-            "max_depth": [None, 10, 20, 40],
-            "min_samples_split": [2, 5, 10],
-            "min_samples_leaf": [1, 2, 4],
-        },
-    ),
 }
-
-if HAS_XGB:
-    PARAM_GRIDS["xgboost"] = (
-        XGBClassifier(
-            tree_method="hist",  # much faster histogram-based split finding on sparse data
-            eval_metric="mlogloss",
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-        ),
-        {
-            "n_estimators": [100, 150, 250],
-            "max_depth": [3, 5, 7],
-            "learning_rate": [0.01, 0.05, 0.1],
-            "subsample": [0.7, 0.85, 1.0],
-        },
-    )
 
 
 def tune_best_model():
@@ -80,7 +63,7 @@ def tune_best_model():
             f"Add one to PARAM_GRIDS in src/models/tune.py."
         )
 
-   
+    # Reuses the EXACT same cached train/test split train.py used (no refitting on test).
     x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
         apply_feature_selection=best_info.get("apply_feature_selection", False),
         k=best_info.get("k", 1000),
@@ -120,7 +103,7 @@ def tune_best_model():
     }
     save_json(tuning_results, TUNING_RESULTS_PATH)
     print(f"Tuning results saved -> {TUNING_RESULTS_PATH}")
-
+    print("\nNext step: python -m src.models.evaluate")
 
     return search
 

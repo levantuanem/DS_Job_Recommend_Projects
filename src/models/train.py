@@ -1,11 +1,31 @@
+"""
+src/models/train.py
+
+Member 4 - STEP 1: Train the baseline model (Logistic Regression only).
+
+Pipeline:
+    Member 3's build_features()  -->  x_train, x_test, y_train, y_test
+                                        |
+                          LogisticRegression (baseline)
+                                        |
+                    StratifiedKFold Cross-Validation (Macro-F1)
+                                        |
+                    Fit on full train -> evaluate train vs test
+                                        |
+                    Save the model + a comparison table (1 row)
+                                        |
+                    Hand its name off to tune.py via models/best_model_info.json
+
+Run (from the repository root, so "src" is importable):
+    python -m src.models.train
+"""
+
 import time
 
 import joblib
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.utils.class_weight import compute_sample_weight
 
 from src.models.utils import (
     get_train_test_data,
@@ -15,11 +35,6 @@ from src.models.utils import (
     MODEL_COMPARISON_PATH,
     BEST_MODEL_INFO_PATH,
 )
-try:
-    from xgboost import XGBClassifier
-    HAS_XGB = True
-except ImportError:
-    HAS_XGB = False
 
 RANDOM_STATE = 42
 CV_FOLDS = 5
@@ -27,36 +42,16 @@ CV_FOLDS = 5
 
 def build_candidate_models():
     """
-    README 9.1 Baseline Model: Logistic Regression
-    README 9.2 Candidate Models: RandomForest, XGBoost
-    README 9.4 Class Imbalance: class_weight="balanced" wherever supported
+    README 9.1 Baseline Model: Logistic Regression (only model used, by request)
+    README 9.4 Class Imbalance: class_weight="balanced"
     """
-    models = {
+    return {
         "logistic_regression_baseline": LogisticRegression(
             max_iter=2000,
             class_weight="balanced",
             random_state=RANDOM_STATE,
         ),
-        "random_forest": RandomForestClassifier(
-            n_estimators=300,
-            class_weight="balanced",
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-        ),
     }
-
-    if HAS_XGB:
-        models["xgboost"] = XGBClassifier(
-            n_estimators=150,       
-            tree_method="hist",     
-            eval_metric="mlogloss",
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-        )
-    else:
-        print("[info] xgboost not installed - skipping (pip install xgboost to enable).")
-
-    return models
 
 
 def train_all_models(apply_feature_selection=False, k=1000):
@@ -68,9 +63,6 @@ def train_all_models(apply_feature_selection=False, k=1000):
 
     models = build_candidate_models()
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
-
-    # Sample weights for XGBoost, which doesn't accept class_weight="balanced" directly.
-    sample_weight = compute_sample_weight(class_weight="balanced", y=y_train)
 
     results = []
 
@@ -84,14 +76,11 @@ def train_all_models(apply_feature_selection=False, k=1000):
         )
 
         # ---- Fit on the full training set ----
-        if name == "xgboost":
-            model.fit(x_train, y_train, sample_weight=sample_weight)
-        else:
-            model.fit(x_train, y_train)
+        model.fit(x_train, y_train)
 
         train_time = time.time() - start
 
-        # Bias & Variance: compare train vs test performance ----
+        # ---- README 9.7 / 9.8 Bias & Variance: compare train vs test performance ----
         train_pred = model.predict(x_train)
         test_pred = model.predict(x_test)
 
@@ -112,14 +101,14 @@ def train_all_models(apply_feature_selection=False, k=1000):
             f"Test Macro-F1: {metrics['test_f1_macro']:.4f} | Test Acc: {metrics['test_accuracy']:.4f}"
         )
 
-    # Model Comparison table ----
+    # ---- README 9.10 Model comparison table (1 row - Logistic Regression only) ----
     comparison_df = pd.DataFrame(results).set_index("model_name")
     comparison_df = comparison_df.sort_values("cv_f1_macro_mean", ascending=False)
     comparison_df.to_csv(MODEL_COMPARISON_PATH)
     print(f"\nModel comparison table saved -> {MODEL_COMPARISON_PATH}")
     print(comparison_df[["cv_f1_macro_mean", "test_f1_macro", "test_accuracy", "training_time_sec"]])
 
-    # ---- Pick the candidate with the best CV Macro-F1 to hand off to tune.py ----
+    # ---- Hand the (only) candidate off to tune.py ----
     best_name = comparison_df.index[0]
     best_info = {
         "best_model_name": best_name,
@@ -130,6 +119,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
     }
     save_json(best_info, BEST_MODEL_INFO_PATH)
     print(f"\nBest candidate before tuning: {best_name} -> saved to {BEST_MODEL_INFO_PATH}")
+    print("Next step: python -m src.models.tune")
 
     return comparison_df
 
