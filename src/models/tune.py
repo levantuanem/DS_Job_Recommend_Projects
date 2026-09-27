@@ -21,7 +21,7 @@ except ImportError:
 
 RANDOM_STATE = 42
 CV_FOLDS = 5
-N_ITER = 25  # RandomizedSearchCV budget
+N_ITER = 25  
 
 # =========================
 #Hyperparameter search spaces (one per candidate model)
@@ -120,7 +120,7 @@ def tune_best_model():
     }
     save_json(tuning_results, TUNING_RESULTS_PATH)
     print(f"Tuning results saved -> {TUNING_RESULTS_PATH}")
-    print("\nNext step: python -m src.models.evaluate")
+
 
     return search
 

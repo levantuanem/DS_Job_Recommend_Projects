@@ -1,11 +1,3 @@
-"""
-
-
- Train baseline + candidate models.
-
-
-"""
-
 import time
 
 import joblib
@@ -23,8 +15,6 @@ from src.models.utils import (
     MODEL_COMPARISON_PATH,
     BEST_MODEL_INFO_PATH,
 )
-
-# Optional boosting library - training still works fine without it.
 try:
     from xgboost import XGBClassifier
     HAS_XGB = True
@@ -101,7 +91,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
 
         train_time = time.time() - start
 
-        # ---- README 9.7 / 9.8 Bias & Variance: compare train vs test performance ----
+        # Bias & Variance: compare train vs test performance ----
         train_pred = model.predict(x_train)
         test_pred = model.predict(x_test)
 
@@ -122,7 +112,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
             f"Test Macro-F1: {metrics['test_f1_macro']:.4f} | Test Acc: {metrics['test_accuracy']:.4f}"
         )
 
-    # ---- README 9.10 Model Comparison table ----
+    # Model Comparison table ----
     comparison_df = pd.DataFrame(results).set_index("model_name")
     comparison_df = comparison_df.sort_values("cv_f1_macro_mean", ascending=False)
     comparison_df.to_csv(MODEL_COMPARISON_PATH)
@@ -140,7 +130,6 @@ def train_all_models(apply_feature_selection=False, k=1000):
     }
     save_json(best_info, BEST_MODEL_INFO_PATH)
     print(f"\nBest candidate before tuning: {best_name} -> saved to {BEST_MODEL_INFO_PATH}")
-    print("Next step: python -m src.models.tune")
 
     return comparison_df
 
