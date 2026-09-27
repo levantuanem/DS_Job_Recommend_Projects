@@ -1,24 +1,3 @@
-"""
-src/models/train.py
-
-Member 4 - STEP 1: Train the baseline model (Logistic Regression only).
-
-Pipeline:
-    Member 3's build_features()  -->  x_train, x_test, y_train, y_test
-                                        |
-                          LogisticRegression (baseline)
-                                        |
-                    StratifiedKFold Cross-Validation (Macro-F1)
-                                        |
-                    Fit on full train -> evaluate train vs test
-                                        |
-                    Save the model + a comparison table (1 row)
-                                        |
-                    Hand its name off to tune.py via models/best_model_info.json
-
-Run (from the repository root, so "src" is importable):
-    python -m src.models.train
-"""
 
 import time
 
@@ -70,7 +49,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
         print(f"\n=== Training: {name} ===")
         start = time.time()
 
-        # ---- README 9.5 Cross Validation (TRAIN only, never touches x_test) ----
+        # Cross Validation (TRAIN only, never touches x_test) ----
         cv_scores = cross_val_score(
             model, x_train, y_train, cv=cv, scoring="f1_macro", n_jobs=-1
         )
@@ -80,7 +59,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
 
         train_time = time.time() - start
 
-        # ---- README 9.7 / 9.8 Bias & Variance: compare train vs test performance ----
+        #  Bias & Variance: compare train vs test performance ----
         train_pred = model.predict(x_train)
         test_pred = model.predict(x_test)
 
@@ -101,7 +80,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
             f"Test Macro-F1: {metrics['test_f1_macro']:.4f} | Test Acc: {metrics['test_accuracy']:.4f}"
         )
 
-    # ---- README 9.10 Model comparison table (1 row - Logistic Regression only) ----
+    # -Model comparison table (1 row - Logistic Regression only) ----
     comparison_df = pd.DataFrame(results).set_index("model_name")
     comparison_df = comparison_df.sort_values("cv_f1_macro_mean", ascending=False)
     comparison_df.to_csv(MODEL_COMPARISON_PATH)

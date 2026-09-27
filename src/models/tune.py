@@ -1,17 +1,4 @@
-"""
-src/models/tune.py
 
-Member 4 - STEP 2: Hyperparameter tuning of the baseline (Logistic Regression only).
-
-Reads models/best_model_info.json (written by train.py - always
-"logistic_regression_baseline" now), runs RandomizedSearchCV with
-StratifiedKFold cross-validation (scoring = Macro-F1, per README 9.6/9.9),
-and saves the tuned estimator as models/best_model.pkl - the ONE file
-evaluate.py and predict.py use downstream.
-
-Run (from the repository root):
-    python -m src.models.tune
-"""
 
 import json
 
@@ -29,10 +16,10 @@ from src.models.utils import (
 
 RANDOM_STATE = 42
 CV_FOLDS = 5
-N_ITER = 25  # RandomizedSearchCV budget - raise for a more thorough (slower) search
+N_ITER = 25  
 
 # =========================
-# README 9.6 Hyperparameter search space - Logistic Regression only
+# Hyperparameter search space - Logistic Regression only
 # =========================
 PARAM_GRIDS = {
     "logistic_regression_baseline": (
@@ -103,7 +90,7 @@ def tune_best_model():
     }
     save_json(tuning_results, TUNING_RESULTS_PATH)
     print(f"Tuning results saved -> {TUNING_RESULTS_PATH}")
-    print("\nNext step: python -m src.models.evaluate")
+    
 
     return search
 
