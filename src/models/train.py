@@ -1,153 +1,149 @@
 """
-train.py
---------
-Buoc 2 cua Member 4: Train cac model chinh thuc (khong phai LazyPredict).
 
-Gom:
-- Baseline model: Logistic Regression
-- Candidate models: Random Forest, Linear SVM, Gradient Boosting, XGBoost, LightGBM
-- Xu ly Class Imbalance: class_weight hoac SMOTE (chi ap dung tren TRAIN)
-- Cross Validation (StratifiedKFold) de danh gia do on dinh / variance cua model
-- Ghi lai: CV Mean, CV Std, Training Time cho tung model
+
+ Train baseline + candidate models.
+
+
 """
 
 import time
-import numpy as np
+
+import joblib
 import pandas as pd
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import LinearSVC
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.utils.class_weight import compute_sample_weight
 
+from src.models.utils import (
+    get_train_test_data,
+    compute_metrics,
+    save_json,
+    MODELS_DIR,
+    MODEL_COMPARISON_PATH,
+    BEST_MODEL_INFO_PATH,
+)
+
+# Optional boosting library - training still works fine without it.
 try:
     from xgboost import XGBClassifier
     HAS_XGB = True
 except ImportError:
     HAS_XGB = False
 
-try:
-    from lightgbm import LGBMClassifier
-    HAS_LGBM = True
-except ImportError:
-    HAS_LGBM = False
-
-from imblearn.over_sampling import SMOTE
-
-from src.models.config import RANDOM_STATE, CV_FOLDS, PRIMARY_SCORING, IMBALANCE_STRATEGY
+RANDOM_STATE = 42
+CV_FOLDS = 5
 
 
-def get_candidate_models(class_weight=None):
+def build_candidate_models():
     """
-    Dinh nghia Baseline + Candidate models theo dung muc 9.1 va 9.2 trong README.
-    class_weight duoc truyen vao neu IMBALANCE_STRATEGY == "class_weight".
+    README 9.1 Baseline Model: Logistic Regression
+    README 9.2 Candidate Models: RandomForest, XGBoost
+    README 9.4 Class Imbalance: class_weight="balanced" wherever supported
     """
     models = {
-        "Logistic Regression": LogisticRegression(
+        "logistic_regression_baseline": LogisticRegression(
             max_iter=2000,
-            class_weight=class_weight,
+            class_weight="balanced",
             random_state=RANDOM_STATE,
         ),
-        "Random Forest": RandomForestClassifier(
+        "random_forest": RandomForestClassifier(
             n_estimators=300,
-            class_weight=class_weight,
+            class_weight="balanced",
             random_state=RANDOM_STATE,
             n_jobs=-1,
-        ),
-        # LinearSVC khong co predict_proba -> boc bang CalibratedClassifierCV
-        # de dung duoc cho Log Loss / predict_proba khi can.
-        "Linear SVM": CalibratedClassifierCV(
-            LinearSVC(
-                class_weight=class_weight,
-                random_state=RANDOM_STATE,
-                max_iter=5000,
-            ),
-            cv=3,
-        ),
-        "Gradient Boosting": GradientBoostingClassifier(
-            n_estimators=200,
-            random_state=RANDOM_STATE,
         ),
     }
 
     if HAS_XGB:
-        models["XGBoost"] = XGBClassifier(
-            n_estimators=300,
+        models["xgboost"] = XGBClassifier(
+            n_estimators=150,       
+            tree_method="hist",     
             eval_metric="mlogloss",
             random_state=RANDOM_STATE,
             n_jobs=-1,
         )
-
-    if HAS_LGBM:
-        models["LightGBM"] = LGBMClassifier(
-            n_estimators=300,
-            class_weight=class_weight,
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-        )
+    else:
+        print("[info] xgboost not installed - skipping (pip install xgboost to enable).")
 
     return models
 
 
-def apply_class_imbalance_strategy(X_train, y_train):
-    """
-    Ap dung chien luoc xu ly mat can bang class THEO README muc 9.4.
-    QUAN TRONG: chi ap dung tren TRAIN, khong dung tren Validation/Test.
-    Tra ve: (X_train_resampled, y_train_resampled, class_weight_param)
-    """
-    if IMBALANCE_STRATEGY == "smote":
-        sm = SMOTE(random_state=RANDOM_STATE)
-        X_res, y_res = sm.fit_resample(X_train, y_train)
-        print(f"Da ap dung SMOTE: {X_train.shape[0]} -> {X_res.shape[0]} mau.")
-        return X_res, y_res, None
+def train_all_models(apply_feature_selection=False, k=1000):
+    x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
+        apply_feature_selection=apply_feature_selection, k=k
+    )
+    print(f"x_train: {x_train.shape}, x_test: {x_test.shape}")
+    print(f"Classes ({len(label_encoder.classes_)}): {list(label_encoder.classes_)}")
 
-    if IMBALANCE_STRATEGY == "class_weight":
-        return X_train, y_train, "balanced"
-
-    return X_train, y_train, None
-
-
-def train_and_cross_validate(X_train, y_train):
-    """
-    Train tung candidate model va danh gia bang StratifiedKFold Cross Validation.
-    Tra ve DataFrame ket qua (CV Mean, CV Std, Training Time) + dict model da fit tren full train.
-    """
-    X_train_res, y_train_res, class_weight = apply_class_imbalance_strategy(X_train, y_train)
-    models = get_candidate_models(class_weight=class_weight)
-
+    models = build_candidate_models()
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
 
+    # Sample weights for XGBoost, which doesn't accept class_weight="balanced" directly.
+    sample_weight = compute_sample_weight(class_weight="balanced", y=y_train)
+
     results = []
-    fitted_models = {}
 
     for name, model in models.items():
-        print(f"\n>>> Dang train & cross-validate: {name}")
+        print(f"\n=== Training: {name} ===")
         start = time.time()
 
+        # ---- README 9.5 Cross Validation (TRAIN only, never touches x_test) ----
         cv_scores = cross_val_score(
-            model, X_train_res, y_train_res,
-            cv=cv, scoring=PRIMARY_SCORING, n_jobs=-1,
+            model, x_train, y_train, cv=cv, scoring="f1_macro", n_jobs=-1
         )
 
-        # Fit lai tren toan bo train (sau khi da co CV score) de dung cho buoc evaluate/tune
-        model.fit(X_train_res, y_train_res)
-        elapsed = time.time() - start
+        # ---- Fit on the full training set ----
+        if name == "xgboost":
+            model.fit(x_train, y_train, sample_weight=sample_weight)
+        else:
+            model.fit(x_train, y_train)
 
-        fitted_models[name] = model
-        results.append({
-            "Model": name,
-            "CV Mean (f1_macro)": np.round(cv_scores.mean(), 4),
-            "CV Std": np.round(cv_scores.std(), 4),
-            "Scores by Fold": np.round(cv_scores, 4).tolist(),
-            "Training Time (s)": np.round(elapsed, 2),
-        })
+        train_time = time.time() - start
 
-        print(f"    CV Mean: {cv_scores.mean():.4f} | CV Std: {cv_scores.std():.4f} "
-              f"| Time: {elapsed:.2f}s")
+        # ---- README 9.7 / 9.8 Bias & Variance: compare train vs test performance ----
+        train_pred = model.predict(x_train)
+        test_pred = model.predict(x_test)
 
-    results_df = pd.DataFrame(results).sort_values(
-        by="CV Mean (f1_macro)", ascending=False
-    ).reset_index(drop=True)
+        metrics = {"model_name": name}
+        metrics.update(compute_metrics(y_train, train_pred, prefix="train_"))
+        metrics.update(compute_metrics(y_test, test_pred, prefix="test_"))
+        metrics["cv_f1_macro_mean"] = cv_scores.mean()
+        metrics["cv_f1_macro_std"] = cv_scores.std()
+        metrics["training_time_sec"] = train_time
 
-    return results_df, fitted_models
+        results.append(metrics)
+
+        model_path = MODELS_DIR / f"{name}.pkl"
+        joblib.dump(model, model_path)
+        print(f"Saved model -> {model_path}")
+        print(
+            f"CV Macro-F1: {metrics['cv_f1_macro_mean']:.4f} (+/- {metrics['cv_f1_macro_std']:.4f}) | "
+            f"Test Macro-F1: {metrics['test_f1_macro']:.4f} | Test Acc: {metrics['test_accuracy']:.4f}"
+        )
+
+    # ---- README 9.10 Model Comparison table ----
+    comparison_df = pd.DataFrame(results).set_index("model_name")
+    comparison_df = comparison_df.sort_values("cv_f1_macro_mean", ascending=False)
+    comparison_df.to_csv(MODEL_COMPARISON_PATH)
+    print(f"\nModel comparison table saved -> {MODEL_COMPARISON_PATH}")
+    print(comparison_df[["cv_f1_macro_mean", "test_f1_macro", "test_accuracy", "training_time_sec"]])
+
+    # ---- Pick the candidate with the best CV Macro-F1 to hand off to tune.py ----
+    best_name = comparison_df.index[0]
+    best_info = {
+        "best_model_name": best_name,
+        "cv_f1_macro_mean": float(comparison_df.loc[best_name, "cv_f1_macro_mean"]),
+        "test_f1_macro": float(comparison_df.loc[best_name, "test_f1_macro"]),
+        "apply_feature_selection": apply_feature_selection,
+        "k": k,
+    }
+    save_json(best_info, BEST_MODEL_INFO_PATH)
+    print(f"\nBest candidate before tuning: {best_name} -> saved to {BEST_MODEL_INFO_PATH}")
+    print("Next step: python -m src.models.tune")
+
+    return comparison_df
+
+
+if __name__ == "__main__":
+    train_all_models(apply_feature_selection=False, k=1000)
