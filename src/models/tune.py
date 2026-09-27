@@ -1,116 +1,129 @@
-"""
-tune.py
--------
-Buoc 3 cua Member 4: Hyperparameter Tuning (muc 9.6 trong README).
+import json
 
-Chi nen tune 1-3 model tiem nang nhat (lay tu ket qua train.py / lazy_predict_runner.py)
-de tiet kiem thoi gian, khong nen GridSearch toan bo candidate models.
-"""
+import joblib
+from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 
-import numpy as np
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, StratifiedKFold
+from src.models.utils import (
+    get_train_test_data,
+    save_json,
+    BEST_MODEL_INFO_PATH,
+    BEST_MODEL_PATH,
+    TUNING_RESULTS_PATH,
+)
 
-from src.models.config import RANDOM_STATE, CV_FOLDS, PRIMARY_SCORING
+try:
+    from xgboost import XGBClassifier
+    HAS_XGB = True
+except ImportError:
+    HAS_XGB = False
 
+RANDOM_STATE = 42
+CV_FOLDS = 5
+N_ITER = 25  # RandomizedSearchCV budget
 
-# Param grid goi y cho tung model - co the chinh lai trong configs/model.yaml
+# =========================
+#Hyperparameter search spaces (one per candidate model)
+# =========================
 PARAM_GRIDS = {
-    "Logistic Regression": {
-        "C": [0.01, 0.1, 1, 10, 100],
-        "penalty": ["l2"],
-        "solver": ["lbfgs"],
-    },
-    "Random Forest": {
-        "n_estimators": [200, 300, 500],
-        "max_depth": [None, 10, 20, 30],
-        "min_samples_split": [2, 5, 10],
-        "min_samples_leaf": [1, 2, 4],
-    },
-    "Gradient Boosting": {
-        "n_estimators": [100, 200, 300],
-        "learning_rate": [0.01, 0.05, 0.1],
-        "max_depth": [2, 3, 4],
-    },
-    "XGBoost": {
-        "n_estimators": [200, 300, 500],
-        "max_depth": [3, 5, 7],
-        "learning_rate": [0.01, 0.05, 0.1],
-        "subsample": [0.7, 0.8, 1.0],
-        "colsample_bytree": [0.7, 0.8, 1.0],
-    },
-    "LightGBM": {
-        "n_estimators": [200, 300, 500],
-        "num_leaves": [15, 31, 63],
-        "learning_rate": [0.01, 0.05, 0.1],
-        "subsample": [0.7, 0.8, 1.0],
-    },
+    "logistic_regression_baseline": (
+        LogisticRegression(max_iter=2000, class_weight="balanced", random_state=RANDOM_STATE),
+        {
+            "C": [0.01, 0.1, 1, 10, 100],
+            "solver": ["lbfgs", "saga"],
+        },
+    ),
+    "random_forest": (
+        RandomForestClassifier(class_weight="balanced", random_state=RANDOM_STATE, n_jobs=-1),
+        {
+            "n_estimators": [200, 300, 500],
+            "max_depth": [None, 10, 20, 40],
+            "min_samples_split": [2, 5, 10],
+            "min_samples_leaf": [1, 2, 4],
+        },
+    ),
 }
 
+if HAS_XGB:
+    PARAM_GRIDS["xgboost"] = (
+        XGBClassifier(
+            tree_method="hist",  # much faster histogram-based split finding on sparse data
+            eval_metric="mlogloss",
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        ),
+        {
+            "n_estimators": [100, 150, 250],
+            "max_depth": [3, 5, 7],
+            "learning_rate": [0.01, 0.05, 0.1],
+            "subsample": [0.7, 0.85, 1.0],
+        },
+    )
 
-def tune_model(model_name, base_model, X_train, y_train, search_type="random", n_iter=25):
-    """
-    Tune 1 model bang GridSearchCV hoac RandomizedSearchCV + Stratified Cross Validation.
 
-    search_type:
-        "grid"   -> GridSearchCV (tim toan bo, cham hon, chinh xac hon)
-        "random" -> RandomizedSearchCV (nhanh hon, phu hop khi param grid lon)
-    """
+def tune_best_model():
+    if not BEST_MODEL_INFO_PATH.exists():
+        raise FileNotFoundError(
+            f"{BEST_MODEL_INFO_PATH} not found. Run train.py first: python -m src.models.train"
+        )
+
+    with open(BEST_MODEL_INFO_PATH, "r", encoding="utf-8") as f:
+        best_info = json.load(f)
+
+    model_name = best_info["best_model_name"]
+    print(f"Tuning best candidate from train.py: {model_name}")
+
     if model_name not in PARAM_GRIDS:
         raise ValueError(
-            f"Chua co param grid cho model '{model_name}'. "
-            f"Hay them vao PARAM_GRIDS trong tune.py."
+            f"No hyperparameter grid defined for '{model_name}'. "
+            f"Add one to PARAM_GRIDS in src/models/tune.py."
         )
 
-    param_grid = PARAM_GRIDS[model_name]
+   
+    x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
+        apply_feature_selection=best_info.get("apply_feature_selection", False),
+        k=best_info.get("k", 1000),
+    )
+
+    base_model, param_grid = PARAM_GRIDS[model_name]
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
 
-    if search_type == "grid":
-        search = GridSearchCV(
-            estimator=base_model,
-            param_grid=param_grid,
-            scoring=PRIMARY_SCORING,
-            cv=cv,
-            n_jobs=-1,
-            verbose=1,
-        )
-    else:
-        search = RandomizedSearchCV(
-            estimator=base_model,
-            param_distributions=param_grid,
-            n_iter=n_iter,
-            scoring=PRIMARY_SCORING,
-            cv=cv,
-            n_jobs=-1,
-            random_state=RANDOM_STATE,
-            verbose=1,
-        )
+    search = RandomizedSearchCV(
+        estimator=base_model,
+        param_distributions=param_grid,
+        n_iter=N_ITER,
+        scoring="f1_macro",
+        cv=cv,
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+        verbose=1,
+        refit=True,
+    )
 
-    print(f"\n>>> Dang tune: {model_name} ({search_type} search)")
-    search.fit(X_train, y_train)
+    print("Running RandomizedSearchCV (this can take a while)...")
+    search.fit(x_train, y_train)
 
-    print(f"    Best {PRIMARY_SCORING}: {search.best_score_:.4f}")
-    print(f"    Best params: {search.best_params_}")
+    print(f"\nBest CV Macro-F1: {search.best_score_:.4f}")
+    print(f"Best params: {search.best_params_}")
 
-    return search.best_estimator_, search.best_params_, search.best_score_
+    # ---- Save the tuned model as THE official best model used downstream ----
+    joblib.dump(search.best_estimator_, BEST_MODEL_PATH)
+    print(f"Tuned best model saved -> {BEST_MODEL_PATH}")
+
+    tuning_results = {
+        "model_name": model_name,
+        "best_cv_f1_macro": float(search.best_score_),
+        "best_params": search.best_params_,
+        "cv_folds": CV_FOLDS,
+        "n_iter": N_ITER,
+    }
+    save_json(tuning_results, TUNING_RESULTS_PATH)
+    print(f"Tuning results saved -> {TUNING_RESULTS_PATH}")
+    print("\nNext step: python -m src.models.evaluate")
+
+    return search
 
 
-def tune_top_models(top_model_names, fitted_models_dict, X_train, y_train, search_type="random"):
-    """
-    Tune nhieu model cung luc. fitted_models_dict lay tu train.train_and_cross_validate().
-    Tra ve dict: {model_name: (best_estimator, best_params, best_score)}
-    """
-    tuned_results = {}
-    for name in top_model_names:
-        if name not in fitted_models_dict:
-            print(f"Bo qua '{name}' vi khong co trong fitted_models_dict.")
-            continue
-        base_model = fitted_models_dict[name]
-        best_est, best_params, best_score = tune_model(
-            name, base_model, X_train, y_train, search_type=search_type
-        )
-        tuned_results[name] = {
-            "best_estimator": best_est,
-            "best_params": best_params,
-            "best_cv_score": best_score,
-        }
-    return tuned_results
+if __name__ == "__main__":
+    tune_best_model()

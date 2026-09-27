@@ -1,0 +1,7 @@
+{
+  "best_model_name": "logistic_regression_baseline",
+  "cv_f1_macro_mean": 0.67700275180729,
+  "test_f1_macro": 0.7001674709934638,
+  "apply_feature_selection": false,
+  "k": 1000
+}
