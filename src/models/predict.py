@@ -1,8 +1,3 @@
-"""
-Run (from the repository root):
-    python -m src.models.predict --input data/raw/new_postings.csv --output reports/predictions.csv
-"""
-
 import argparse
 
 import joblib
@@ -17,7 +12,6 @@ from src.models.utils import (
     LABEL_ENCODER_PATH,
 )
 
-# ---- Member 3's feature engineering functions, reused as-is ----
 from src.features.text_features import add_text_features
 from src.features.skill_extraction import extract_skill_features
 from src.features.temporal_features import add_temporal_features
@@ -37,13 +31,12 @@ def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
     """Apply the exact same feature-engineering pipeline Member 3 used in build_features()."""
     df = df.copy()
 
-    # New/unseen data usually won't carry the target - drop it if it does (e.g. for scoring).
     if TARGET_COLUMN in df.columns:
         df = df.drop(columns=[TARGET_COLUMN])
 
-    df = add_text_features(df)          # title/description/skills_desc -> lengths, word counts, combined_text
-    df = extract_skill_features(df)     # skill_* binary flags + skill_count
-    df = add_temporal_features(df)      # posting_year/month/day/... , is_weekend
+    df = add_text_features(df)          
+    df = extract_skill_features(df)     
+    df = add_temporal_features(df)     
 
     df = df.drop(columns=[c for c in COLUMNS_TO_DROP if c in df.columns])
     return df
@@ -62,7 +55,7 @@ def predict(input_path: str, output_path: str):
         )
 
     model = joblib.load(BEST_MODEL_PATH)
-    preprocessor = joblib.load(PREPROCESSOR_PATH)   # fitted on TRAIN only, by Member 3
+    preprocessor = joblib.load(PREPROCESSOR_PATH)   
     label_encoder = joblib.load(LABEL_ENCODER_PATH)
     selector = joblib.load(FEATURE_SELECTOR_PATH) if FEATURE_SELECTOR_PATH.exists() else None
 

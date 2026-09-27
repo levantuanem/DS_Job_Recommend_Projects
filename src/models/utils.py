@@ -28,11 +28,11 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 DATA_SPLIT_PATH = MODELS_DIR / "data_split.pkl"
 LABEL_ENCODER_PATH = MODELS_DIR / "label_encoder.pkl"
-PREPROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"           # saved by Member 3's build_features()
-FEATURE_SELECTOR_PATH = MODELS_DIR / "feature_selector.pkl"   # saved by Member 3's build_features() (optional)
+PREPROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"           
+FEATURE_SELECTOR_PATH = MODELS_DIR / "feature_selector.pkl"   
 MODEL_COMPARISON_PATH = MODELS_DIR / "model_comparison.csv"
 BEST_MODEL_INFO_PATH = MODELS_DIR / "best_model_info.json"
-BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"                # tuned final model -> used by evaluate.py & predict.py
+BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"                
 TUNING_RESULTS_PATH = MODELS_DIR / "tuning_results.json"
 
 
