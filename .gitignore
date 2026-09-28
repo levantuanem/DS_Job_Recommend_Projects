@@ -59,6 +59,11 @@ htmlcov/
 *.h5
 *.pt
 *.pth
+models/tuning_results.json
+
+# Generated reports
+# =========================
+reports/*
 
 # =========================
 # Data
