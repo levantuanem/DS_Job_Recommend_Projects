@@ -50,15 +50,21 @@ def get_train_test_data(apply_feature_selection=False, k=1000, force_rebuild=Fal
     with different `apply_feature_selection` / `k` settings.
     """
     if DATA_SPLIT_PATH.exists() and not force_rebuild:
-        print(f"Loading cached train/test split from {DATA_SPLIT_PATH}")
         cache = joblib.load(DATA_SPLIT_PATH)
-        return (
-            cache["x_train"],
-            cache["x_test"],
-            cache["y_train"],
-            cache["y_test"],
-            cache["label_encoder"],
+        cache_matches_config = (
+            cache.get("apply_feature_selection") == apply_feature_selection
+            and cache.get("k") == k
         )
+        if cache_matches_config:
+            print(f"Loading cached train/test split from {DATA_SPLIT_PATH}")
+            return (
+                cache["x_train"],
+                cache["x_test"],
+                cache["y_train"],
+                cache["y_test"],
+                cache["label_encoder"],
+            )
+        print("Cached split configuration differs; rebuilding features.")
 
     print("No cached split found. Building features via Member 3's pipeline (build_features)...")
     x_train, x_test, y_train, y_test = build_features(
@@ -77,6 +83,8 @@ def get_train_test_data(apply_feature_selection=False, k=1000, force_rebuild=Fal
             "y_train": y_train_enc,
             "y_test": y_test_enc,
             "label_encoder": label_encoder,
+            "apply_feature_selection": apply_feature_selection,
+            "k": k,
         },
         DATA_SPLIT_PATH,
     )

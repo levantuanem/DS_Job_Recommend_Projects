@@ -1,5 +1,3 @@
-import pandas as pd
-import pytest
 from src.pipeline.pipeline import run_pipeline
 
 # ============================================================
@@ -59,8 +57,8 @@ def test_pipeline_target_is_not_empty():
     result = run_pipeline()
     y_train = result["y_train"]
     y_test = result["y_test"]
-    assert not y_train.empty
-    assert not y_test.empty
+    assert len(y_train) > 0
+    assert len(y_test) > 0
 
 # ============================================================
 # TARGET TYPE
@@ -69,15 +67,15 @@ def test_pipeline_target_type():
     result = run_pipeline()
     y_train = result["y_train"]
     y_test = result["y_test"]
-    assert isinstance(y_train, pd.Series)
-    assert isinstance(y_test, pd.Series)
+    assert y_train.dtype.kind in "iu"
+    assert y_test.dtype.kind in "iu"
 
 # ============================================================
 # FUTURE PIPELINE COMPONENTS
 # ============================================================
-def test_future_pipeline_components_are_empty():
+def test_pipeline_model_outputs():
     result = run_pipeline()
-    assert result["model"] is None
-    assert result["metrics"] is None
+    assert result["tuning_search"] is not None
+    assert result["metrics"] is not None
     assert result["predictions"] is None
 

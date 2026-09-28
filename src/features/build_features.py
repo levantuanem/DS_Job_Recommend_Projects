@@ -257,6 +257,9 @@ def build_features(apply_feature_selection=False, k=1000):
         SELECTOR_PATH.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(selector, SELECTOR_PATH)
         print("Feature selector saved successfully!")
+    elif SELECTOR_PATH.exists():
+        SELECTOR_PATH.unlink()
+        print("Removed stale feature selector because feature selection is disabled.")
 
     # =========================
     # SAVE PREPROCESSOR
