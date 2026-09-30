@@ -279,5 +279,8 @@ def build_features(apply_feature_selection=False, k=1000):
 # MAIN
 # =========================
 if __name__ == "__main__":
-    build_features(apply_feature_selection=False, k=1000)
+    build_features(
+        apply_feature_selection=True,
+        k=1000
+    )
 
