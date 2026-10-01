@@ -1,14 +1,12 @@
-
-
 import json
 
 import joblib
 from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
-from sklearn.linear_model import LogisticRegression
 
 from src.models.utils import (
     get_train_test_data,
     save_json,
+    build_logistic_pipeline,
     BEST_MODEL_INFO_PATH,
     BEST_MODEL_PATH,
     TUNING_RESULTS_PATH,
@@ -16,17 +14,15 @@ from src.models.utils import (
 
 RANDOM_STATE = 42
 CV_FOLDS = 5
-N_ITER = 25  
+N_ITER = 25  # RandomizedSearchCV 
 
-# =========================
-# Hyperparameter search space - Logistic Regression only
-# =========================
+
 PARAM_GRIDS = {
     "logistic_regression_baseline": (
-        LogisticRegression(max_iter=2000, class_weight="balanced", random_state=RANDOM_STATE),
+        build_logistic_pipeline(random_state=RANDOM_STATE),
         {
-            "C": [0.01, 0.1, 1, 10, 100],
-            "solver": ["lbfgs", "saga"],
+            "clf__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+            "clf__solver": ["lbfgs"],  
         },
     ),
 }
@@ -50,9 +46,9 @@ def tune_best_model():
             f"Add one to PARAM_GRIDS in src/models/tune.py."
         )
 
-    # Reuses the EXACT same cached train/test split train.py used (no refitting on test).
+
     x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
-        apply_feature_selection=best_info.get("apply_feature_selection", False),
+        apply_feature_selection=best_info.get("apply_feature_selection", True),
         k=best_info.get("k", 1000),
     )
 
@@ -90,7 +86,7 @@ def tune_best_model():
     }
     save_json(tuning_results, TUNING_RESULTS_PATH)
     print(f"Tuning results saved -> {TUNING_RESULTS_PATH}")
-    
+ 
 
     return search
 

@@ -16,7 +16,7 @@ from src.features.text_features import add_text_features
 from src.features.skill_extraction import extract_skill_features
 from src.features.temporal_features import add_temporal_features
 
-# Same columns Member 3 drops in build_features() right before fitting the preprocessor
+
 COLUMNS_TO_DROP = [
     "job_id", "company_id", "zip_code", "fips", "salary_id",
     "original_listed_time", "listed_time", "expiry", "closed_time",
@@ -28,15 +28,16 @@ TARGET_COLUMN = "formatted_experience_level"
 
 
 def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Apply the exact same feature-engineering pipeline Member 3 used in build_features()."""
+
     df = df.copy()
+
 
     if TARGET_COLUMN in df.columns:
         df = df.drop(columns=[TARGET_COLUMN])
 
-    df = add_text_features(df)          
+    df = add_text_features(df)        
     df = extract_skill_features(df)     
-    df = add_temporal_features(df)     
+    df = add_temporal_features(df)    
 
     df = df.drop(columns=[c for c in COLUMNS_TO_DROP if c in df.columns])
     return df
@@ -64,7 +65,6 @@ def predict(input_path: str, output_path: str):
 
     x_new = prepare_new_data(raw_df)
 
-    # transform ONLY - never fit on new/prediction data
     x_new_transformed = preprocessor.transform(x_new)
     if selector is not None:
         x_new_transformed = selector.transform(x_new_transformed)

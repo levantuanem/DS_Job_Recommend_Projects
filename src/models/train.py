@@ -1,15 +1,14 @@
-
 import time
 
 import joblib
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.linear_model import LogisticRegression
 
 from src.models.utils import (
     get_train_test_data,
     compute_metrics,
     save_json,
+    build_logistic_pipeline,
     MODELS_DIR,
     MODEL_COMPARISON_PATH,
     BEST_MODEL_INFO_PATH,
@@ -20,20 +19,13 @@ CV_FOLDS = 5
 
 
 def build_candidate_models():
-    """
-    README 9.1 Baseline Model: Logistic Regression (only model used, by request)
-    README 9.4 Class Imbalance: class_weight="balanced"
-    """
+
     return {
-        "logistic_regression_baseline": LogisticRegression(
-            max_iter=2000,
-            class_weight="balanced",
-            random_state=RANDOM_STATE,
-        ),
+        "logistic_regression_baseline": build_logistic_pipeline(random_state=RANDOM_STATE),
     }
 
 
-def train_all_models(apply_feature_selection=False, k=1000):
+def train_all_models(apply_feature_selection=True, k=1000):
     x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
         apply_feature_selection=apply_feature_selection, k=k
     )
@@ -59,7 +51,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
 
         train_time = time.time() - start
 
-        #  Bias & Variance: compare train vs test performance ----
+        # Bias & Variance: compare train vs test performance ----
         train_pred = model.predict(x_train)
         test_pred = model.predict(x_test)
 
@@ -80,7 +72,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
             f"Test Macro-F1: {metrics['test_f1_macro']:.4f} | Test Acc: {metrics['test_accuracy']:.4f}"
         )
 
-    # -Model comparison table (1 row - Logistic Regression only) ----
+    #  Model comparison table (1 row - Logistic Regression only) ----
     comparison_df = pd.DataFrame(results).set_index("model_name")
     comparison_df = comparison_df.sort_values("cv_f1_macro_mean", ascending=False)
     comparison_df.to_csv(MODEL_COMPARISON_PATH)
@@ -104,4 +96,4 @@ def train_all_models(apply_feature_selection=False, k=1000):
 
 
 if __name__ == "__main__":
-    train_all_models(apply_feature_selection=False, k=1000)
+    train_all_models(apply_feature_selection=True, k=1000)

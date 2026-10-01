@@ -1,22 +1,24 @@
-
-
 import sys
 import json
 from pathlib import Path
 
 import joblib
 from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-# ---------------------------------------------------------------------------
-# Make sure the repo root is importable ("from src.features... import ...")
-# regardless of the working directory the script is launched from.
-# ---------------------------------------------------------------------------
+# imbalanced-learn: data-level class imbalance handling (random oversampling),
+# used TOGETHER with class_weight="balanced" (model-level handling) per team request.
+# pip install imbalanced-learn
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.pipeline import Pipeline as ImbPipeline
+
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.features.build_features import build_features  # Member 3's function
+from src.features.build_features import build_features  
 
 # =========================
 # PATHS
@@ -28,27 +30,16 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 DATA_SPLIT_PATH = MODELS_DIR / "data_split.pkl"
 LABEL_ENCODER_PATH = MODELS_DIR / "label_encoder.pkl"
-PREPROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"           
-FEATURE_SELECTOR_PATH = MODELS_DIR / "feature_selector.pkl"   
+PREPROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"          
+FEATURE_SELECTOR_PATH = MODELS_DIR / "feature_selector.pkl"  
 MODEL_COMPARISON_PATH = MODELS_DIR / "model_comparison.csv"
 BEST_MODEL_INFO_PATH = MODELS_DIR / "best_model_info.json"
-BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"                
+BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"            
 TUNING_RESULTS_PATH = MODELS_DIR / "tuning_results.json"
 
 
-def get_train_test_data(apply_feature_selection=False, k=1000, force_rebuild=False):
-    """
-    Returns (x_train, x_test, y_train_enc, y_test_enc, label_encoder).
+def get_train_test_data(apply_feature_selection=True, k=1000, force_rebuild=False):
 
-    First call: runs Member 3's build_features() (fits the preprocessor and,
-    optionally, the SelectKBest selector on TRAIN only) and caches the resulting
-    arrays + a LabelEncoder fit on the training labels. All later calls
-    (tune.py, evaluate.py) reuse this exact cached split so nothing is
-    re-fit on test data.
-
-    Pass force_rebuild=True (or delete models/data_split.pkl) to regenerate
-    with different `apply_feature_selection` / `k` settings.
-    """
     if DATA_SPLIT_PATH.exists() and not force_rebuild:
         print(f"Loading cached train/test split from {DATA_SPLIT_PATH}")
         cache = joblib.load(DATA_SPLIT_PATH)
@@ -100,3 +91,13 @@ def compute_metrics(y_true, y_pred, prefix=""):
 def save_json(obj, path):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False, default=str)
+
+
+def build_logistic_pipeline(random_state=42, **logreg_kwargs):
+
+    params = dict(max_iter=2000, class_weight="balanced", random_state=random_state)
+    params.update(logreg_kwargs)
+    return ImbPipeline([
+        ("oversample", RandomOverSampler(random_state=random_state)),
+        ("clf", LogisticRegression(**params)),
+    ])
