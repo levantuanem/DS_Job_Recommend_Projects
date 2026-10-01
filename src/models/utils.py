@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import joblib
+import yaml
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
@@ -23,6 +24,7 @@ from src.features.build_features import build_features  # Member 3's function
 # =========================
 MODELS_DIR = ROOT_DIR / "models"
 REPORTS_DIR = ROOT_DIR / "reports"
+CONFIG_PATH = ROOT_DIR / "configs" / "config.yaml"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -34,6 +36,23 @@ MODEL_COMPARISON_PATH = MODELS_DIR / "model_comparison.csv"
 BEST_MODEL_INFO_PATH = MODELS_DIR / "best_model_info.json"
 BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"                
 TUNING_RESULTS_PATH = MODELS_DIR / "tuning_results.json"
+
+
+def load_model_config():
+    """Load project config with model.cv_folds and model.k_fold overrides."""
+    if not CONFIG_PATH.exists():
+        return {}
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+    return config.get("model", {})
+
+
+def get_model_setting(name, default):
+    value = load_model_config().get(name, default)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def get_train_test_data(apply_feature_selection=False, k=1000, force_rebuild=False):

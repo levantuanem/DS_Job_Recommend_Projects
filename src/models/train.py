@@ -10,13 +10,15 @@ from src.models.utils import (
     get_train_test_data,
     compute_metrics,
     save_json,
+    get_model_setting,
     MODELS_DIR,
     MODEL_COMPARISON_PATH,
     BEST_MODEL_INFO_PATH,
 )
 
 RANDOM_STATE = 42
-CV_FOLDS = 5
+CV_FOLDS = get_model_setting("cv_folds", get_model_setting("k_fold", 3))
+K_FOLD = get_model_setting("k_fold", CV_FOLDS)
 
 
 def build_candidate_models():
@@ -41,7 +43,7 @@ def train_all_models(apply_feature_selection=False, k=1000):
     print(f"Classes ({len(label_encoder.classes_)}): {list(label_encoder.classes_)}")
 
     models = build_candidate_models()
-    cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    cv = StratifiedKFold(n_splits=K_FOLD, shuffle=True, random_state=RANDOM_STATE)
 
     results = []
 
