@@ -16,10 +16,14 @@ from src.features.feature_selection import select_features
 # PATHS
 # =========================
 ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_PATH = (ROOT_DIR/ "data"/"processed"/"postings_clean.csv")
-OUTPUT_PATH = (ROOT_DIR/"models"/"preprocessor.pkl")
-SELECTOR_PATH = (ROOT_DIR/"models"/"feature_selector.pkl")
+BALANCED_DATA_PATH = ROOT_DIR / "data" / "processed" / "postings_balanced.csv"
+DATA_PATH = ROOT_DIR / "data" / "processed" / "postings_clean.csv"
 
+if BALANCED_DATA_PATH.exists():
+    DATA_PATH = BALANCED_DATA_PATH
+
+OUTPUT_PATH = ROOT_DIR / "models" / "preprocessor.pkl"
+SELECTOR_PATH = ROOT_DIR / "models" / "feature_selector.pkl"
 # =========================
 # BUILD FEATURES
 # =========================
