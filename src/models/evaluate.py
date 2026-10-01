@@ -93,7 +93,7 @@ def evaluate_best_model():
             print(
                 f"Feature importances saved -> {importance_path} "
                 f"(indices map to the ColumnTransformer's transformed columns; "
-                f"use preprocessor.get_feature_names_out() from Member 3's preprocessor.pkl "
+                f"use model.named_steps['preprocessor'].get_feature_names_out() "
                 f"to map indices back to real feature names)."
             )
         elif hasattr(final_estimator, "coef_"):

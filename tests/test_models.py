@@ -1,15 +1,15 @@
 import argparse
+import re
 import sys
 
 import joblib
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 
 from src.models import tune as tune_module
 from src.models.utils import (
     ROOT_DIR,
     REPORTS_DIR,
-    PREPROCESSOR_PATH,
-    FEATURE_SELECTOR_PATH,
     LABEL_ENCODER_PATH,
     MODEL_COMPARISON_PATH,
     BEST_MODEL_INFO_PATH,
@@ -17,23 +17,18 @@ from src.models.utils import (
     TUNING_RESULTS_PATH,
 )
 from src.models.predict import prepare_new_data  # dùng lại đúng pipeline của Member 3
+from src.models.train import print_oversampling_summary
 
 DATA_PATH = ROOT_DIR / "data" / "processed" / "postings_clean.csv"
 TARGET_COLUMN = "formatted_experience_level"
 
 REQUIRED_ARTIFACTS = {
-    "Preprocessor (Member 3, fit on train)": PREPROCESSOR_PATH,
+    "Complete fitted model pipeline (tune.py)": BEST_MODEL_PATH,
     "Label encoder": LABEL_ENCODER_PATH,
     "Model comparison table (train.py)": MODEL_COMPARISON_PATH,
     "Best model info (train.py)": BEST_MODEL_INFO_PATH,
-    "Tuned best model (tune.py)": BEST_MODEL_PATH,
     "Tuning results (tune.py)": TUNING_RESULTS_PATH,
 }
-OPTIONAL_ARTIFACTS = {
-    "Feature selector (chỉ có nếu apply_feature_selection=True)": FEATURE_SELECTOR_PATH,
-}
-
-
 def check_artifacts():
     print("=" * 70)
     print("BƯỚC 1: Kiểm tra các file artifact bắt buộc")
@@ -44,10 +39,6 @@ def check_artifacts():
         status = "OK" if ok else "THIẾU"
         print(f"[{status:6}] {label}\n         -> {path}")
         all_ok = all_ok and ok
-
-    for label, path in OPTIONAL_ARTIFACTS.items():
-        status = "OK" if path.exists() else "không dùng"
-        print(f"[{status:10}] {label}\n         -> {path}")
 
     if not all_ok:
         print("\nThiếu artifact bắt buộc. Hãy chạy tuần tự trước:")
@@ -73,16 +64,10 @@ def sample_and_predict(n=20, random_state=123):
     actual_labels = sample[TARGET_COLUMN].astype(str).values
 
     model = joblib.load(BEST_MODEL_PATH)
-    preprocessor = joblib.load(PREPROCESSOR_PATH)          
     label_encoder = joblib.load(LABEL_ENCODER_PATH)
-    selector = joblib.load(FEATURE_SELECTOR_PATH) if FEATURE_SELECTOR_PATH.exists() else None
 
-    x_new = prepare_new_data(sample)                        # gọi hàm 
-    x_new_transformed = preprocessor.transform(x_new)
-    if selector is not None:
-        x_new_transformed = selector.transform(x_new_transformed)
-
-    pred_encoded = model.predict(x_new_transformed)
+    x_new = prepare_new_data(sample)
+    pred_encoded = model.predict(x_new)
     pred_labels = label_encoder.inverse_transform(pred_encoded)
 
     result = pd.DataFrame({
@@ -128,6 +113,21 @@ def main():
 def test_tuning_budget_is_lightweight():
     assert tune_module.CV_FOLDS <= 3, "Training CV budget must stay lightweight for large datasets."
     assert tune_module.N_ITER <= 8, "RandomizedSearchCV iteration count must be capped for faster runs."
+
+
+def test_oversampling_summary_reports_balanced_training_counts(capsys):
+    labels = ["Entry"] * 4 + ["Senior"] * 2
+    label_encoder = LabelEncoder().fit(labels)
+    y_train = label_encoder.transform(labels)
+    x_train = pd.DataFrame({"company_name": ["Example Co"] * len(labels)})
+
+    print_oversampling_summary(x_train, y_train, label_encoder)
+
+    output = capsys.readouterr().out
+    after_counts = output.split("Training class distribution after oversampling:")[1]
+    assert re.search(r"Entry\s+4", after_counts)
+    assert re.search(r"Senior\s+4", after_counts)
+    assert "Sample rows after oversampling" in output
 
 
 if __name__ == "__main__":

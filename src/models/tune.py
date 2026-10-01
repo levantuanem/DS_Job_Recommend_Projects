@@ -13,18 +13,15 @@ from src.models.utils import (
 )
 
 RANDOM_STATE = 42
-CV_FOLDS = 5
-N_ITER = 25  # RandomizedSearchCV 
+CV_FOLDS = 3
+N_ITER = 8
 
 
 PARAM_GRIDS = {
-    "logistic_regression_baseline": (
-        build_logistic_pipeline(random_state=RANDOM_STATE),
-        {
-            "clf__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
-            "clf__solver": ["lbfgs"],  
-        },
-    ),
+    "logistic_regression_baseline": {
+        "clf__C": [0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+        "clf__solver": ["lbfgs"],
+    },
 }
 
 
@@ -52,7 +49,13 @@ def tune_best_model():
         k=best_info.get("k", 1000),
     )
 
-    base_model, param_grid = PARAM_GRIDS[model_name]
+    base_model = build_logistic_pipeline(
+        x_train,
+        random_state=RANDOM_STATE,
+        apply_feature_selection=best_info.get("apply_feature_selection", True),
+        k=best_info.get("k", 1000),
+    )
+    param_grid = PARAM_GRIDS[model_name]
     cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
 
     search = RandomizedSearchCV(

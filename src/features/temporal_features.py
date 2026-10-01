@@ -8,11 +8,11 @@ def add_temporal_features(df: pd.DataFrame) -> pd.DataFrame:
     # =========================
     if "listed_time" not in df.columns:
         return df
-    posting_time = pd.to_datetime(
-        df["listed_time"],
-        unit="ms",
-        errors="coerce"
-    )
+    listed_time = df["listed_time"]
+    if pd.api.types.is_numeric_dtype(listed_time):
+        posting_time = pd.to_datetime(listed_time, unit="ms", errors="coerce", utc=True)
+    else:
+        posting_time = pd.to_datetime(listed_time, errors="coerce", utc=True)
 
     # =========================
     # CALENDAR FEATURES

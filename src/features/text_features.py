@@ -3,13 +3,14 @@ import pandas as pd
 def add_text_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    text_cols = [
-        "title",
-        "description",
-        "skills_desc"]
+    if "description" not in df.columns and "snippet" in df.columns:
+        df["description"] = df["snippet"]
 
-    for col in text_cols:
+    for col in ("title", "description", "skills_desc"):
+        if col not in df.columns:
+            df[col] = ""
         df[col] = df[col].fillna("").astype(str)
+
     df["title_length"] = df["title"].str.len()
     df["description_length"] = (df["description"].str.len())
     df["skills_length"] = (df["skills_desc"].str.len())

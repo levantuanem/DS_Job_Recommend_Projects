@@ -940,30 +940,27 @@ Toàn bộ workflow có thể tóm tắt:
 
 # 26. Output Artifacts
 
-Feature Engineering pipeline có thể tạo các artifact cần thiết cho inference.
+Feature engineering creates row-level features; fitted preprocessing and feature
+selection are kept inside the complete model pipeline for inference.
 
 Ví dụ:
 
 ```text
 models/
-├── preprocessor.pkl
-└── feature_selector.pkl
+└── best_model.pkl
 ```
 
-`preprocessor.pkl` lưu preprocessing logic đã được fit.
-
-`feature_selector.pkl` lưu feature-selection transformation nếu selection được bật.
-
-Nhờ vậy, khi prediction trên dữ liệu mới, cùng preprocessing logic có thể được áp dụng:
+`best_model.pkl` stores the fitted preprocessing, optional feature selector,
+imbalance sampler configuration, and classifier as one inference pipeline.
+Transformers are fit within each cross-validation fold during model selection.
+At inference, the same fitted preprocessing and feature selection are applied:
 
 ```text
 New Job
    ↓
 Feature Engineering
    ↓
-Saved Preprocessor
-   ↓
-Saved Feature Selector
+Saved Model Pipeline
    ↓
 Model
    ↓

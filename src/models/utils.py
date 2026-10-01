@@ -5,6 +5,7 @@ from pathlib import Path
 import joblib
 from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LogisticRegression
+from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # imbalanced-learn: data-level class imbalance handling (random oversampling),
@@ -18,7 +19,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.features.build_features import build_features  
+from src.features.build_features import build_features, build_preprocessor
 
 # =========================
 # PATHS
@@ -30,12 +31,11 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 DATA_SPLIT_PATH = MODELS_DIR / "data_split.pkl"
 LABEL_ENCODER_PATH = MODELS_DIR / "label_encoder.pkl"
-PREPROCESSOR_PATH = MODELS_DIR / "preprocessor.pkl"          
-FEATURE_SELECTOR_PATH = MODELS_DIR / "feature_selector.pkl"  
 MODEL_COMPARISON_PATH = MODELS_DIR / "model_comparison.csv"
 BEST_MODEL_INFO_PATH = MODELS_DIR / "best_model_info.json"
 BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"            
 TUNING_RESULTS_PATH = MODELS_DIR / "tuning_results.json"
+DATA_SPLIT_VERSION = 2
 
 
 def get_train_test_data(apply_feature_selection=True, k=1000, force_rebuild=False):
@@ -43,13 +43,15 @@ def get_train_test_data(apply_feature_selection=True, k=1000, force_rebuild=Fals
     if DATA_SPLIT_PATH.exists() and not force_rebuild:
         print(f"Loading cached train/test split from {DATA_SPLIT_PATH}")
         cache = joblib.load(DATA_SPLIT_PATH)
-        return (
-            cache["x_train"],
-            cache["x_test"],
-            cache["y_train"],
-            cache["y_test"],
-            cache["label_encoder"],
-        )
+        if cache.get("version") == DATA_SPLIT_VERSION:
+            return (
+                cache["x_train"],
+                cache["x_test"],
+                cache["y_train"],
+                cache["y_test"],
+                cache["label_encoder"],
+            )
+        print("Cached split uses an old format; rebuilding it.")
 
     print("No cached split found. Building features via Member 3's pipeline (build_features)...")
     x_train, x_test, y_train, y_test = build_features(
@@ -68,6 +70,7 @@ def get_train_test_data(apply_feature_selection=True, k=1000, force_rebuild=Fals
             "y_train": y_train_enc,
             "y_test": y_test_enc,
             "label_encoder": label_encoder,
+            "version": DATA_SPLIT_VERSION,
         },
         DATA_SPLIT_PATH,
     )
@@ -93,11 +96,27 @@ def save_json(obj, path):
         json.dump(obj, f, indent=2, ensure_ascii=False, default=str)
 
 
-def build_logistic_pipeline(random_state=42, **logreg_kwargs):
+class BoundedSelectKBest(SelectKBest):
+    def fit(self, X, y=None):
+        self.k = min(self.k, X.shape[1])
+        return super().fit(X, y)
+
+
+def build_logistic_pipeline(
+    x_reference,
+    random_state=42,
+    apply_feature_selection=False,
+    k=1000,
+    **logreg_kwargs,
+):
 
     params = dict(max_iter=2000, class_weight="balanced", random_state=random_state)
     params.update(logreg_kwargs)
-    return ImbPipeline([
+    steps = [("preprocessor", build_preprocessor(x_reference))]
+    if apply_feature_selection:
+        steps.append(("selector", BoundedSelectKBest(score_func=f_classif, k=k)))
+    steps.extend([
         ("oversample", RandomOverSampler(random_state=random_state)),
         ("clf", LogisticRegression(**params)),
     ])
+    return ImbPipeline(steps)
