@@ -1,0 +1,2 @@
+model_name,train_accuracy,train_precision_macro,train_recall_macro,train_f1_macro,train_f1_weighted,test_accuracy,test_precision_macro,test_recall_macro,test_f1_macro,test_f1_weighted,cv_f1_macro_mean,cv_f1_macro_std,training_time_sec
+logistic_regression_baseline,0.8493811473481105,0.765577444228124,0.9352936236222497,0.8317157721877247,0.8510168412061365,0.76143583227446,0.652511289867654,0.7686996529436567,0.6976222268665496,0.7656459322655168,0.677365069758576,0.00602365096342109,246.32791829109192
