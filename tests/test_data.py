@@ -26,6 +26,7 @@ from data.cleaning_functions import (
     clean_text_column,
     detect_outliers_iqr,
     cast_dtype,
+    oversample_target_distribution,
 )
 
 
@@ -179,6 +180,35 @@ class TestCleaningFunctions:
         assert df_clean.loc[0, "num"] == 1.0
         assert pd.isna(df_clean.loc[2, "num"])
         assert report["n_new_nan_from_coercion"] == 1
+
+    def test_oversample_target_distribution(self):
+        # Mock dataset with imbalanced classes: Mid-Senior (4), Entry (2), Executive (1), NaN (1)
+        df = pd.DataFrame({
+            "job_id": [1, 2, 3, 4, 5, 6, 7, 8],
+            "title": ["A", "B", "C", "D", "E", "F", "G", "H"],
+            "formatted_experience_level": [
+                "MID-SENIOR LEVEL",
+                "MID-SENIOR LEVEL",
+                "MID-SENIOR LEVEL",
+                "MID-SENIOR LEVEL",
+                "ENTRY LEVEL",
+                "ENTRY LEVEL",
+                "EXECUTIVE",
+                np.nan,
+            ],
+        })
+        df_resampled, report = oversample_target_distribution(
+            df, target_col="formatted_experience_level", random_state=42
+        )
+        counts = df_resampled["formatted_experience_level"].value_counts()
+        # All valid classes should now have equal sample count equal to max (4)
+        assert counts["MID-SENIOR LEVEL"] == 4
+        assert counts["ENTRY LEVEL"] == 4
+        assert counts["EXECUTIVE"] == 4
+        assert len(df_resampled) == 12
+        assert report["n_added"] == 5
+        assert report["n_before"] == 7
+        assert report["n_after"] == 12
 
 
 @pytest.fixture(scope="module")

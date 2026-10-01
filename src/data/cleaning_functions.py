@@ -311,3 +311,79 @@ def cast_dtype(
         "n_new_nan_from_coercion": after_na - before_na,
     }
     return df, report
+
+
+def oversample_target_distribution(
+    df: pd.DataFrame,
+    target_col: str = "formatted_experience_level",
+    random_state: int = 42,
+    drop_na_target: bool = True,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Cân bằng phân bố của biến mục tiêu (target) bằng kỹ thuật Random Oversampling.
+    
+    Tham số:
+    - df: DataFrame đầu vào cần cân bằng.
+    - target_col: Tên cột mục tiêu (mặc định 'formatted_experience_level').
+    - random_state: Seed để tái lập kết quả.
+    - drop_na_target: Nếu True, loại bỏ các dòng bị missing target trước khi oversampling.
+
+    Trả về:
+    - df_resampled: DataFrame đã được oversample cân bằng đều số lượng giữa các class.
+    - report: Dict ghi lại thông tin trước và sau khi sampling.
+    """
+    df = df.copy()
+    if target_col not in df.columns:
+        return df, {
+            "action": "oversample_target_distribution",
+            "target_col": target_col,
+            "status": "skipped",
+            "reason": f"Column '{target_col}' not found in DataFrame",
+        }
+
+    # Phân tách dữ liệu hợp lệ và missing
+    if drop_na_target:
+        valid_mask = df[target_col].notna()
+        df_valid = df[valid_mask].copy()
+    else:
+        df_valid = df.copy()
+
+    if len(df_valid) == 0:
+        return df, {
+            "action": "oversample_target_distribution",
+            "target_col": target_col,
+            "status": "skipped",
+            "reason": "No valid target rows found",
+        }
+
+    before_counts = df_valid[target_col].value_counts().to_dict()
+    max_count = max(before_counts.values())
+
+    # Thực hiện Oversampling bằng cách resample từng nhóm lên max_count
+    resampled_groups = []
+    for _, group in df_valid.groupby(target_col):
+        if len(group) < max_count:
+            sampled_group = group.sample(n=max_count, replace=True, random_state=random_state)
+        else:
+            sampled_group = group
+        resampled_groups.append(sampled_group)
+
+    df_resampled = (
+        pd.concat(resampled_groups, axis=0)
+        .sample(frac=1.0, random_state=random_state)
+        .reset_index(drop=True)
+    )
+    after_counts = df_resampled[target_col].value_counts().to_dict()
+
+    report = {
+        "action": "oversample_target_distribution",
+        "target_col": target_col,
+        "n_before": len(df_valid),
+        "n_after": len(df_resampled),
+        "n_added": len(df_resampled) - len(df_valid),
+        "distribution_before": before_counts,
+        "distribution_after": after_counts,
+        "reason": "Cân bằng phân bố biến mục tiêu (target distribution) để tránh thiên lệch mô hình.",
+    }
+    return df_resampled, report
+

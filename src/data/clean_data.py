@@ -30,6 +30,7 @@ try:
         fix_salary_units,
         standardize_categorical,
         clean_text_column,
+        oversample_target_distribution,
     )
 except (ImportError, ValueError):
     from cleaning_functions import (
@@ -41,6 +42,7 @@ except (ImportError, ValueError):
         fix_salary_units,
         standardize_categorical,
         clean_text_column,
+        oversample_target_distribution,
     )
 
 logging.basicConfig(
@@ -178,7 +180,7 @@ def clean_bridge_table(df: pd.DataFrame, table_name: str, key_cols: List[str]) -
     return df_clean, logs
 
 
-def run_pipeline(raw_dir: Path, processed_dir: Path):
+def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True):
     """Chạy toàn bộ pipeline làm sạch và lưu trữ kết quả"""
     processed_dir.mkdir(parents=True, exist_ok=True)
     all_logs = []
@@ -267,6 +269,18 @@ def run_pipeline(raw_dir: Path, processed_dir: Path):
         postings_clean.to_csv(processed_dir / "postings_clean.csv", index=False)
         all_logs.extend(logs)
 
+        # 8b. Cân bằng nhãn mục tiêu (Oversampling Target Distribution) nếu được yêu cầu
+        if balance_target and "formatted_experience_level" in postings_clean.columns:
+            logger.info("Balancing target distribution for formatted_experience_level (Oversampling)...")
+            postings_balanced, sample_log = oversample_target_distribution(
+                postings_clean, target_col="formatted_experience_level", random_state=42
+            )
+            balanced_path = processed_dir / "postings_balanced.csv"
+            postings_balanced.to_csv(balanced_path, index=False)
+            logger.info(f"Saved balanced postings to {balanced_path} ({len(postings_balanced)} records)")
+            all_logs.append({**sample_log, "table": "postings_balanced"})
+            after_counts["postings_balanced"] = len(postings_balanced)
+
     # Lưu cleaning log
     cleaning_log_df = pd.DataFrame(all_logs)
     cleaning_log_df.to_csv(processed_dir / "cleaning_log.csv", index=False)
@@ -293,6 +307,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Clean raw LinkedIn job posting datasets")
     parser.add_argument("--raw-dir", type=str, default="data/raw", help="Path to raw data directory")
     parser.add_argument("--processed-dir", type=str, default="data/processed", help="Path to processed data directory")
+    parser.add_argument("--balance-target", action="store_true", default=True, help="Perform oversampling on formatted_experience_level")
     args = parser.parse_args()
 
-    run_pipeline(Path(args.raw_dir), Path(args.processed_dir))
+    run_pipeline(Path(args.raw_dir), Path(args.processed_dir), balance_target=args.balance_target)
+
