@@ -1,18 +1,3 @@
-"""
-src/models/evaluate.py
-
-Member 4 - STEP 3: Evaluate the tuned best model (models/best_model.pkl,
-produced by tune.py) on train vs test.
-
-Outputs (all under reports/):
-    evaluation_report.json   - all metrics + bias/variance diagnosis + classification report
-    confusion_matrix.csv/png - confusion matrix on the test set
-    feature_importance.csv   - feature_importances_ / coef_ for model interpretation (9.11)
-
-Run (from the repository root):
-    python -m src.models.evaluate
-"""
-
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -42,7 +27,7 @@ def evaluate_best_model():
     train_pred = model.predict(x_train)
     test_pred = model.predict(x_test)
 
-    # ---- README 9.7 / 9.8 Bias & Variance ----
+    #Bias & Variance ----
     train_metrics = compute_metrics(y_train, train_pred, prefix="train_")
     test_metrics = compute_metrics(y_test, test_pred, prefix="test_")
 
@@ -63,7 +48,7 @@ def evaluate_best_model():
         diagnosis = "Bias/variance look reasonably balanced."
     print(f"\nDiagnosis: {diagnosis}")
 
-    # ---- README 9.9 Full evaluation on the test set ----
+    # Full evaluation on the test set ----
     class_names = [str(c) for c in label_encoder.classes_]
     report = classification_report(
         y_test, test_pred, target_names=class_names, output_dict=True, zero_division=0
@@ -93,11 +78,13 @@ def evaluate_best_model():
     plt.close(fig)
     print(f"\nConfusion matrix saved -> {REPORTS_DIR / 'confusion_matrix.png'}")
 
-    # ---- README 9.11 Model interpretation ----
+
+    final_estimator = model.steps[-1][1] if hasattr(model, "steps") else model
+
     importance_path = REPORTS_DIR / "feature_importance.csv"
     try:
-        if hasattr(model, "feature_importances_"):
-            importances = model.feature_importances_
+        if hasattr(final_estimator, "feature_importances_"):
+            importances = final_estimator.feature_importances_
             imp_df = pd.DataFrame({
                 "feature_index": np.arange(len(importances)),
                 "importance": importances,
@@ -109,9 +96,9 @@ def evaluate_best_model():
                 f"use preprocessor.get_feature_names_out() from Member 3's preprocessor.pkl "
                 f"to map indices back to real feature names)."
             )
-        elif hasattr(model, "coef_"):
+        elif hasattr(final_estimator, "coef_"):
             coef_df = pd.DataFrame(
-                model.coef_, columns=[f"feat_{i}" for i in range(model.coef_.shape[1])]
+                final_estimator.coef_, columns=[f"feat_{i}" for i in range(final_estimator.coef_.shape[1])]
             )
             n_rows = coef_df.shape[0]
             coef_df.insert(0, "class", class_names[:n_rows] if n_rows > 1 else ["positive_class"])
@@ -131,7 +118,7 @@ def evaluate_best_model():
     }
     save_json(summary, REPORTS_DIR / "evaluation_report.json")
     print(f"\nFull evaluation report saved -> {REPORTS_DIR / 'evaluation_report.json'}")
-    print("\nNext step: python -m src.models.predict --input <new_data.csv>")
+
 
     return summary
 

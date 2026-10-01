@@ -1,9 +1,9 @@
 {
   "model_name": "logistic_regression_baseline",
-  "best_cv_f1_macro": 0.7031623638013444,
+  "best_cv_f1_macro": 0.700292432816777,
   "best_params": {
-    "solver": "lbfgs",
-    "C": 10
+    "clf__solver": "lbfgs",
+    "clf__C": 10
   },
   "cv_folds": 5,
   "n_iter": 25
