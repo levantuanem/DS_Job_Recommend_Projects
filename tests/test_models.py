@@ -4,6 +4,7 @@ import sys
 import joblib
 import pandas as pd
 
+from src.models import tune as tune_module
 from src.models.utils import (
     ROOT_DIR,
     REPORTS_DIR,
@@ -122,6 +123,11 @@ def main():
         print("Test dự đoán mẫu  : BỎ QUA (không tìm thấy postings_clean.csv)")
     print("\nPipeline hoạt động bình thường. Giờ có thể dùng cho dữ liệu mới thật sự bằng:")
     print("  python -m src.models.predict --input <file.csv> --output <out.csv>")
+
+
+def test_tuning_budget_is_lightweight():
+    assert tune_module.CV_FOLDS <= 3, "Training CV budget must stay lightweight for large datasets."
+    assert tune_module.N_ITER <= 8, "RandomizedSearchCV iteration count must be capped for faster runs."
 
 
 if __name__ == "__main__":
