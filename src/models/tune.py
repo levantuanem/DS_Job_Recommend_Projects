@@ -1,7 +1,7 @@
 import json
 
 import joblib
-from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV
+from sklearn.model_selection import StratifiedGroupKFold, RandomizedSearchCV
 
 from src.models.utils import (
     get_train_test_data,
@@ -14,7 +14,7 @@ from src.models.utils import (
 
 RANDOM_STATE = 42
 CV_FOLDS = 3
-N_ITER = 8
+N_ITER = 7
 
 
 PARAM_GRIDS = {
@@ -44,9 +44,8 @@ def tune_best_model():
         )
 
 
-    x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
-        apply_feature_selection=best_info.get("apply_feature_selection", True),
-        k=best_info.get("k", 1000),
+    x_train, x_test, y_train, y_test, label_encoder, groups_train = get_train_test_data(
+        include_groups=True
     )
 
     base_model = build_logistic_pipeline(
@@ -56,7 +55,9 @@ def tune_best_model():
         k=best_info.get("k", 1000),
     )
     param_grid = PARAM_GRIDS[model_name]
-    cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    cv = StratifiedGroupKFold(
+        n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE
+    )
 
     search = RandomizedSearchCV(
         estimator=base_model,
@@ -65,13 +66,15 @@ def tune_best_model():
         scoring="f1_macro",
         cv=cv,
         random_state=RANDOM_STATE,
-        n_jobs=-1,
+        n_jobs=1,
+        pre_dispatch=1,
         verbose=1,
         refit=True,
+        error_score="raise",
     )
 
     print("Running RandomizedSearchCV (this can take a while)...")
-    search.fit(x_train, y_train)
+    search.fit(x_train, y_train, groups=groups_train)
 
     print(f"\nBest CV Macro-F1: {search.best_score_:.4f}")
     print(f"Best params: {search.best_params_}")

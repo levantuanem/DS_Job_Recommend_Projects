@@ -10,6 +10,8 @@ Trong project `DS_Job_Recommend_Projects`, Feature Engineering tập trung vào 
 formatted_experience_level
 ```
 
+> Implementation note: this report includes exploratory and proposed features. The active model uses separate TF-IDF vectorizers for `title` and `description`; `skills_desc` is used for skill indicators/counts. Proposed metrics such as salary ratios, views, and applies are not currently passed to the classifier.
+
 Các class mục tiêu gồm:
 
 ```text
@@ -213,12 +215,12 @@ Có thể sử dụng .str operations
 
 ## 5.1. Character length
 
-Với mỗi text column, module tính độ dài chuỗi:
+Module tính độ dài ký tự cho các trường text:
 
 ```text
 title_length
 description_length
-skills_desc_length
+skills_length
 ```
 
 Ví dụ:
@@ -251,12 +253,11 @@ Long description
 
 # 6. Word Count
 
-Module cũng tạo các feature dựa trên số lượng từ:
+Module tạo số lượng từ cho phần mô tả và phần kỹ năng (không tạo word count riêng cho title):
 
 ```text
-title_word_count
 description_word_count
-skills_desc_word_count
+skills_word_count
 ```
 
 Ví dụ:

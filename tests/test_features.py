@@ -3,6 +3,7 @@ import pandas as pd
 from src.features.text_features import add_text_features
 from src.features.skill_extraction import extract_skill_features
 from src.features.temporal_features import add_temporal_features
+from src.features.build_features import _build_company_groups, build_preprocessor
 
 
 # ============================================================
@@ -318,11 +319,47 @@ def test_text_and_skill_features_work_together():
 
     df = add_text_features(df)
     df = extract_skill_features(df)
-
-    assert "combined_text" in df.columns
     assert "skill_python" in df.columns
+    assert "combined_text" in df.columns
     assert "skill_sql" in df.columns
     assert "skill_count" in df.columns
+
+
+def test_company_groups_fall_back_to_name_and_job_id():
+    df = pd.DataFrame(
+        {
+            "company_id": [1, 1, None, None, None],
+            "company_name": ["Example Co", "Example Co", "Other Co", "Other Co", None],
+            "job_id": ["a", "b", "c", "d", "e"],
+        }
+    )
+
+    groups = _build_company_groups(df)
+
+    assert groups.iloc[0] == groups.iloc[1]
+    assert groups.iloc[2] == groups.iloc[3]
+    assert groups.iloc[0] != groups.iloc[2]
+    assert groups.iloc[4] == "job_id:e"
+
+
+def test_preprocessor_does_not_use_company_identity():
+    df = create_test_dataframe()
+    df = add_text_features(df)
+    df = extract_skill_features(df)
+    df = add_temporal_features(df)
+
+    preprocessor = build_preprocessor(df)
+    categorical_columns = next(
+        columns
+        for name, _, columns in preprocessor.transformers
+        if name == "categorical"
+    )
+
+    assert "company_name" not in categorical_columns
+    assert "posting_domain" not in categorical_columns
+    transformer_names = {name for name, _, _ in preprocessor.transformers}
+    assert "title_text" in transformer_names
+    assert "description_text" in transformer_names
 
 
 def test_all_feature_modules_work_together():

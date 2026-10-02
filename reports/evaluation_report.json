@@ -1,64 +1,64 @@
 {
-  "train_accuracy": 0.9653395453903713,
-  "train_precision_macro": 0.9622461512791407,
-  "train_recall_macro": 0.985779915556522,
-  "train_f1_macro": 0.9736781213139069,
-  "train_f1_weighted": 0.9653083426015797,
-  "test_accuracy": 0.7821897501058873,
-  "test_precision_macro": 0.7158284303185422,
-  "test_recall_macro": 0.7375531314571871,
-  "test_f1_macro": 0.7257027717188561,
-  "test_f1_weighted": 0.7836550690387605,
+  "train_accuracy": 0.868827578092829,
+  "train_precision_macro": 0.8132586426079292,
+  "train_recall_macro": 0.9346464922691674,
+  "train_f1_macro": 0.8628968760185245,
+  "train_f1_weighted": 0.8721989504733622,
+  "test_accuracy": 0.7443091582848068,
+  "test_precision_macro": 0.6517193151888433,
+  "test_recall_macro": 0.7286884915747485,
+  "test_f1_macro": 0.6829293554894877,
+  "test_f1_weighted": 0.7484870780883364,
   "diagnosis": "High variance (overfitting): large gap between train and test Macro-F1.",
   "classification_report": {
-    "Associate": {
-      "precision": 0.6149870801033591,
-      "recall": 0.7263479145473042,
-      "f1-score": 0.6660447761194029,
+    "ASSOCIATE": {
+      "precision": 0.35807860262008734,
+      "recall": 0.4170905391658189,
+      "f1-score": 0.38533834586466165,
       "support": 983.0
     },
-    "Director": {
-      "precision": 0.6483790523690773,
-      "recall": 0.6951871657754011,
-      "f1-score": 0.6709677419354839,
-      "support": 374.0
+    "DIRECTOR": {
+      "precision": 0.6974595842956121,
+      "recall": 0.8053333333333333,
+      "f1-score": 0.7475247524752475,
+      "support": 375.0
     },
-    "Entry level": {
-      "precision": 0.8353624792473713,
-      "recall": 0.82239171887769,
-      "f1-score": 0.8288263555250515,
+    "ENTRY LEVEL": {
+      "precision": 0.8035714285714286,
+      "recall": 0.8335603377826205,
+      "f1-score": 0.8182912154031288,
       "support": 3671.0
     },
-    "Executive": {
-      "precision": 0.6031746031746031,
-      "recall": 0.6229508196721312,
-      "f1-score": 0.6129032258064516,
+    "EXECUTIVE": {
+      "precision": 0.4079601990049751,
+      "recall": 0.6721311475409836,
+      "f1-score": 0.5077399380804953,
       "support": 122.0
     },
-    "Internship": {
-      "precision": 0.7916666666666666,
-      "recall": 0.7862068965517242,
-      "f1-score": 0.7889273356401384,
+    "INTERNSHIP": {
+      "precision": 0.8198757763975155,
+      "recall": 0.9103448275862069,
+      "f1-score": 0.8627450980392157,
       "support": 145.0
     },
-    "Mid-Senior level": {
-      "precision": 0.8014007003501751,
-      "recall": 0.7722342733188721,
-      "f1-score": 0.7865471952866085,
+    "MID-SENIOR LEVEL": {
+      "precision": 0.8233703002434406,
+      "recall": 0.7336707640395276,
+      "f1-score": 0.7759367830741779,
       "support": 4149.0
     },
-    "accuracy": 0.7821897501058873,
+    "accuracy": 0.7443091582848068,
     "macro avg": {
-      "precision": 0.7158284303185422,
-      "recall": 0.7375531314571871,
-      "f1-score": 0.7257027717188561,
-      "support": 9444.0
+      "precision": 0.6517193151888433,
+      "recall": 0.7286884915747485,
+      "f1-score": 0.6829293554894877,
+      "support": 9445.0
     },
     "weighted avg": {
-      "precision": 0.7864286531820819,
-      "recall": 0.7821897501058873,
-      "f1-score": 0.7836550690387605,
-      "support": 9444.0
+      "precision": 0.7568306863248699,
+      "recall": 0.7443091582848068,
+      "f1-score": 0.7484870780883364,
+      "support": 9445.0
     }
   }
 }

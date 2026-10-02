@@ -1,18 +1,9 @@
-"""
-clean_data.py
-Pipeline làm sạch toàn bộ dataset LinkedIn Job Postings.
-Đầu vào: data/raw/
-Đầu ra: data/processed/
-Branch: feature/data — Data Engineer / Data Analyst
-"""
-
 import argparse
 import logging
 from pathlib import Path
 from typing import Dict, List, Tuple
 import pandas as pd
 import numpy as np
-
 import sys
 
 # Đảm bảo đường dẫn import hoạt động cả khi gọi từ root hoặc từ bên trong src/data
@@ -56,22 +47,18 @@ def clean_companies(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict]]:
     """Làm sạch bảng companies.csv"""
     logs = []
     logger.info("Cleaning companies...")
-
     # 1. Drop duplicates
     df_clean, r = drop_duplicate_records(df, subset=["company_id"])
     logs.append({**r, "table": "companies"})
-
     # 2. Text cleaning
     for col in ["name", "description", "state", "city", "address"]:
         if col in df_clean.columns:
             df_clean, r = clean_text_column(df_clean, col)
             logs.append({**r, "table": "companies"})
-
     # 3. Country categorical standardization
     if "country" in df_clean.columns:
         df_clean, r = standardize_categorical(df_clean, "country")
         logs.append({**r, "table": "companies"})
-
     # company_size: Giữ nguyên (1-7 là mã hợp lệ, Genuine Extreme Value)
     return df_clean, logs
 
@@ -80,29 +67,23 @@ def clean_salaries(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict]]:
     """Làm sạch bảng salaries.csv"""
     logs = []
     logger.info("Cleaning salaries...")
-
     # 1. Drop duplicates
     df_clean, r = drop_duplicate_records(df, subset=["salary_id"])
     logs.append({**r, "table": "salaries"})
-
     # 2. Standardize categories first
     for col in ["pay_period", "currency", "compensation_type"]:
         if col in df_clean.columns:
             df_clean, r = standardize_categorical(df_clean, col)
             logs.append({**r, "table": "salaries"})
-
     # 3. Fix inverted range
     df_clean, r = fix_salary_range(df_clean, min_col="min_salary", max_col="max_salary")
     logs.append({**r, "table": "salaries"})
-
     # 4. Flag <= 0
     df_clean, r = flag_zero_negative_salary(df_clean, cols=("min_salary", "med_salary", "max_salary"))
     logs.append({**r, "table": "salaries"})
-
     # 5. Fix units
     df_clean, r = fix_salary_units(df_clean, min_col="min_salary", max_col="max_salary", med_col="med_salary", pay_period_col="pay_period")
     logs.append({**r, "table": "salaries"})
-
     return df_clean, logs
 
 
@@ -110,30 +91,24 @@ def clean_postings(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict]]:
     """Làm sạch bảng chính postings.csv"""
     logs = []
     logger.info("Cleaning postings...")
-
     # 1. Drop duplicates by job_id
     df_clean, r = drop_duplicate_records(df, subset=["job_id"])
     logs.append({**r, "table": "postings"})
-
     # 2. Drop missing required fields (job_id, title, description)
     df_clean, r = drop_missing_required(df_clean, subset=["job_id", "title", "description"])
     logs.append({**r, "table": "postings"})
-
     # 3. Standardize categorical columns
     for col in ["work_type", "formatted_work_type", "formatted_experience_level", "pay_period", "currency", "compensation_type"]:
         if col in df_clean.columns:
             df_clean, r = standardize_categorical(df_clean, col)
             logs.append({**r, "table": "postings"})
-
     # 4. Flag <= 0 salary
     salary_cols = ("min_salary", "med_salary", "max_salary", "normalized_salary")
     df_clean, r = flag_zero_negative_salary(df_clean, cols=salary_cols)
     logs.append({**r, "table": "postings"})
-
     # 5. Fix inverted salary range
     df_clean, r = fix_salary_range(df_clean, min_col="min_salary", max_col="max_salary")
     logs.append({**r, "table": "postings"})
-
     # 6. Fix salary unit mismatches & recalculate normalized_salary
     df_clean, r = fix_salary_units(
         df_clean,
@@ -144,13 +119,11 @@ def clean_postings(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict]]:
         norm_col="normalized_salary",
     )
     logs.append({**r, "table": "postings"})
-
     # 7. Clean text columns
     for col in ["title", "description", "skills_desc", "company_name", "location"]:
         if col in df_clean.columns:
             df_clean, r = clean_text_column(df_clean, col)
             logs.append({**r, "table": "postings"})
-
     # 8. remote_allowed: chuẩn hóa NaN thành 0, 1.0 thành 1
     if "remote_allowed" in df_clean.columns:
         df_clean["remote_allowed"] = df_clean["remote_allowed"].fillna(0).astype(int)
@@ -160,7 +133,6 @@ def clean_postings(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict]]:
             "column": "remote_allowed",
             "reason": "Chuyển NaN thành 0 (không phải remote hoàn toàn), 1.0 thành 1.",
         })
-
     return df_clean, logs
 
 
@@ -168,25 +140,21 @@ def clean_bridge_table(df: pd.DataFrame, table_name: str, key_cols: List[str]) -
     """Làm sạch các bảng quan hệ / phụ"""
     logs = []
     logger.info(f"Cleaning {table_name}...")
-
     df_clean, r = drop_duplicate_records(df, subset=key_cols)
     logs.append({**r, "table": table_name})
-
     for col in df_clean.columns:
         if df_clean[col].dtype == object:
             df_clean, r = clean_text_column(df_clean, col)
             logs.append({**r, "table": table_name})
-
     return df_clean, logs
 
 
-def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True):
+def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = False):
     """Chạy toàn bộ pipeline làm sạch và lưu trữ kết quả"""
     processed_dir.mkdir(parents=True, exist_ok=True)
     all_logs = []
     before_counts = {}
     after_counts = {}
-
     # 1. Companies
     companies_path = raw_dir / "companies.csv"
     if companies_path.exists():
@@ -196,7 +164,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["companies"] = len(companies_clean)
         companies_clean.to_csv(processed_dir / "companies_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 2. Company Industries
     ci_path = raw_dir / "company_industries.csv"
     if ci_path.exists():
@@ -206,7 +173,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["company_industries"] = len(ci_clean)
         ci_clean.to_csv(processed_dir / "company_industries_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 3. Company Specialities
     cs_path = raw_dir / "company_specialities.csv"
     if cs_path.exists():
@@ -216,7 +182,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["company_specialities"] = len(cs_clean)
         cs_clean.to_csv(processed_dir / "company_specialities_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 4. Job Industries
     ji_path = raw_dir / "job_industries.csv"
     if ji_path.exists():
@@ -226,7 +191,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["job_industries"] = len(ji_clean)
         ji_clean.to_csv(processed_dir / "job_industries_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 5. Job Skills
     js_path = raw_dir / "job_skills.csv"
     if js_path.exists():
@@ -236,7 +200,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["job_skills"] = len(js_clean)
         js_clean.to_csv(processed_dir / "job_skills_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 6. Benefits
     bf_path = raw_dir / "benefits.csv"
     if bf_path.exists():
@@ -246,7 +209,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["benefits"] = len(bf_clean)
         bf_clean.to_csv(processed_dir / "benefits_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 7. Salaries
     salaries_path = raw_dir / "salaries.csv"
     if salaries_path.exists():
@@ -256,7 +218,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         after_counts["salaries"] = len(salaries_clean)
         salaries_clean.to_csv(processed_dir / "salaries_clean.csv", index=False)
         all_logs.extend(logs)
-
     # 8. Postings (bảng chính lớn nhất)
     postings_path = raw_dir / "postings.csv"
     if postings_path.exists():
@@ -268,7 +229,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
         logger.info("Saving postings_clean.csv...")
         postings_clean.to_csv(processed_dir / "postings_clean.csv", index=False)
         all_logs.extend(logs)
-
         # 8b. Cân bằng nhãn mục tiêu (Oversampling Target Distribution) nếu được yêu cầu
         if balance_target and "formatted_experience_level" in postings_clean.columns:
             logger.info("Balancing target distribution for formatted_experience_level (Oversampling)...")
@@ -280,12 +240,10 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
             logger.info(f"Saved balanced postings to {balanced_path} ({len(postings_balanced)} records)")
             all_logs.append({**sample_log, "table": "postings_balanced"})
             after_counts["postings_balanced"] = len(postings_balanced)
-
     # Lưu cleaning log
     cleaning_log_df = pd.DataFrame(all_logs)
     cleaning_log_df.to_csv(processed_dir / "cleaning_log.csv", index=False)
     logger.info(f"Saved cleaning log with {len(cleaning_log_df)} entries to {processed_dir / 'cleaning_log.csv'}")
-
     # In và lưu bảng tóm tắt
     summary = pd.DataFrame({
         "Table": list(before_counts.keys()),
@@ -295,7 +253,6 @@ def run_pipeline(raw_dir: Path, processed_dir: Path, balance_target: bool = True
     summary["Records Removed"] = summary["Records Before"] - summary["Records After"]
     summary.to_csv(processed_dir / "cleaning_summary.csv", index=False)
     logger.info(f"Saved cleaning summary to {processed_dir / 'cleaning_summary.csv'}")
-
     print("\n" + "=" * 50)
     print("PIPELINE SUMMARY: BEFORE vs AFTER CLEANING")
     print("=" * 50)
@@ -307,8 +264,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Clean raw LinkedIn job posting datasets")
     parser.add_argument("--raw-dir", type=str, default="data/raw", help="Path to raw data directory")
     parser.add_argument("--processed-dir", type=str, default="data/processed", help="Path to processed data directory")
-    parser.add_argument("--balance-target", action="store_true", default=True, help="Perform oversampling on formatted_experience_level")
+    parser.add_argument("--balance-target", action="store_true", default=False, help="Create an oversampled dataset (not used for model evaluation)")
     args = parser.parse_args()
-
     run_pipeline(Path(args.raw_dir), Path(args.processed_dir), balance_target=args.balance_target)
 

@@ -1,81 +1,40 @@
-from src.pipeline.pipeline import run_pipeline
+from types import SimpleNamespace
 
-# ============================================================
-# BASIC PIPELINE TEST
-# ============================================================
-def test_pipeline_returns_result():
-    result = run_pipeline()
-    assert isinstance(result, dict)
-    assert "X_train" in result
-    assert "X_test" in result
-    assert "y_train" in result
-    assert "y_test" in result
+import pandas as pd
 
-# ============================================================
-# TRAIN / TEST OUTPUT TEST
-# ============================================================
-def test_pipeline_train_test_outputs():
-    result = run_pipeline()
-    X_train = result["X_train"]
-    X_test = result["X_test"]
-    y_train = result["y_train"]
-    y_test = result["y_test"]
-    assert X_train is not None
-    assert X_test is not None
-    assert y_train is not None
-    assert y_test is not None
-    assert X_train.shape[0] > 0
-    assert X_test.shape[0] > 0
-    assert len(y_train) > 0
-    assert len(y_test) > 0
+from src.pipeline import pipeline as pipeline_module
 
-# ============================================================
-# TRAIN / TEST SIZE CONSISTENCY
-# ============================================================
-def test_pipeline_train_test_size_consistency():
-    result = run_pipeline()
-    X_train = result["X_train"]
-    X_test = result["X_test"]
-    y_train = result["y_train"]
-    y_test = result["y_test"]
-    assert X_train.shape[0] == len(y_train)
-    assert X_test.shape[0] == len(y_test)
 
-# ============================================================
-# TRAIN / TEST FEATURE CONSISTENCY
-# ============================================================
-def test_pipeline_feature_dimension_consistency():
-    result = run_pipeline()
-    X_train = result["X_train"]
-    X_test = result["X_test"]
-    assert X_train.shape[1] == X_test.shape[1]
+def test_pipeline_orchestration_without_training_side_effects(monkeypatch):
+    x_train = pd.DataFrame({"feature": [1, 2]})
+    x_test = pd.DataFrame({"feature": [3]})
+    y_train = pd.Series([0, 1])
+    y_test = pd.Series([0])
+    label_encoder = SimpleNamespace(classes_=["ENTRY LEVEL", "DIRECTOR"])
+    search = SimpleNamespace(best_params_={"clf__C": 1}, best_score_=0.7)
 
-# ============================================================
-# TARGET VALIDATION
-# ============================================================
-def test_pipeline_target_is_not_empty():
-    result = run_pipeline()
-    y_train = result["y_train"]
-    y_test = result["y_test"]
-    assert len(y_train) > 0
-    assert len(y_test) > 0
+    monkeypatch.setattr(pipeline_module, "run_data_cleaning", lambda **kwargs: None)
+    monkeypatch.setattr(
+        pipeline_module,
+        "get_train_test_data",
+        lambda **kwargs: (x_train, x_test, y_train, y_test, label_encoder),
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "train_all_models",
+        lambda **kwargs: pd.DataFrame({"cv_f1_macro_mean": [0.7]}),
+    )
+    monkeypatch.setattr(pipeline_module, "tune_best_model", lambda: search)
+    monkeypatch.setattr(
+        pipeline_module,
+        "evaluate_best_model",
+        lambda: {"test_f1_macro": 0.7},
+    )
 
-# ============================================================
-# TARGET TYPE
-# ============================================================
-def test_pipeline_target_type():
-    result = run_pipeline()
-    y_train = result["y_train"]
-    y_test = result["y_test"]
-    assert y_train.dtype.kind in "iu"
-    assert y_test.dtype.kind in "iu"
+    result = pipeline_module.run_pipeline()
 
-# ============================================================
-# FUTURE PIPELINE COMPONENTS
-# ============================================================
-def test_pipeline_model_outputs():
-    result = run_pipeline()
-    assert result["tuning_search"] is not None
-    assert result["metrics"] is not None
+    assert result["X_train"] is x_train
+    assert result["X_test"] is x_test
+    assert result["metrics"]["test_f1_macro"] == 0.7
     assert result["predictions"] is None
 

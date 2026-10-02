@@ -4,19 +4,16 @@ import sys
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.pipeline.preprocess import preprocess_dataset
+from src.data.clean_data import run_pipeline
 
 
 def main() -> None:
-    metadata = preprocess_dataset(
-        PROJECT_ROOT / "data" / "raw" / "postings.csv",
-        PROJECT_ROOT / "data" / "processed",
-        include_posting_engagement=False,
+    run_pipeline(
+        raw_dir=PROJECT_ROOT / "data" / "raw",
+        processed_dir=PROJECT_ROOT / "data" / "processed",
+        balance_target=False,
     )
-    print(
-        f"Saved {metadata['rows']} rows with transformed shape "
-        f"{tuple(metadata['transformed_shape'])}"
-    )
+    print("Preprocessing completed without resampling the full dataset.")
 
 
 if __name__ == "__main__":

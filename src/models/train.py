@@ -1,10 +1,8 @@
 import time
 
 import joblib
-import numpy as np
 import pandas as pd
-from imblearn.over_sampling import RandomOverSampler
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
 
 from src.models.utils import (
     get_train_test_data,
@@ -32,51 +30,31 @@ def build_candidate_models(x_reference, apply_feature_selection=True, k=1000):
     }
 
 
-def print_oversampling_summary(x_train, y_train, label_encoder):
+def print_class_weight_summary(x_train, y_train, label_encoder):
     train_labels = label_encoder.inverse_transform(y_train)
-    before_counts = pd.Series(train_labels).value_counts().sort_index()
-    row_ids = np.arange(len(train_labels)).reshape(-1, 1)
-    sampled_row_ids, sampled_labels = RandomOverSampler(
-        random_state=RANDOM_STATE
-    ).fit_resample(row_ids, train_labels)
-    after_counts = pd.Series(sampled_labels).value_counts().sort_index()
-
-    print("\nTraining class distribution before oversampling:")
-    print(before_counts.to_string())
-    print("\nTraining class distribution after oversampling:")
-    print(after_counts.to_string())
-
-    sample_positions = sampled_row_ids[-5:, 0]
-    sample = x_train.iloc[sample_positions].copy()
-    sample["formatted_experience_level"] = sampled_labels[-5:]
-    sample_columns = [
-        column
-        for column in [
-            "company_name",
-            "title_length",
-            "description_word_count",
-            "formatted_experience_level",
-        ]
-        if column in sample.columns
-    ]
-    print("\nSample rows after oversampling (training data only):")
-    print(sample[sample_columns].to_string(index=False))
+    counts = pd.Series(train_labels).value_counts().sort_index()
+    print("\nTraining class distribution:")
+    print(counts.to_string())
+    print("\nClass imbalance handling: LogisticRegression(class_weight='balanced')")
+    print(f"No rows are duplicated; training rows: {len(x_train)}")
 
 
 def train_all_models(apply_feature_selection=True, k=1000):
-    x_train, x_test, y_train, y_test, label_encoder = get_train_test_data(
-        apply_feature_selection=apply_feature_selection, k=k
+    x_train, x_test, y_train, y_test, label_encoder, groups_train = get_train_test_data(
+        include_groups=True
     )
     print(f"x_train: {x_train.shape}, x_test: {x_test.shape}")
     print(f"Classes ({len(label_encoder.classes_)}): {list(label_encoder.classes_)}")
-    print_oversampling_summary(x_train, y_train, label_encoder)
+    print_class_weight_summary(x_train, y_train, label_encoder)
 
     models = build_candidate_models(
         x_train,
         apply_feature_selection=apply_feature_selection,
         k=k,
     )
-    cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    cv = StratifiedGroupKFold(
+        n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE
+    )
 
     results = []
 
@@ -86,7 +64,13 @@ def train_all_models(apply_feature_selection=True, k=1000):
 
         # Cross Validation (TRAIN only, never touches x_test) ----
         cv_scores = cross_val_score(
-            model, x_train, y_train, cv=cv, scoring="f1_macro", n_jobs=-1
+            model,
+            x_train,
+            y_train,
+            groups=groups_train,
+            cv=cv,
+            scoring="f1_macro",
+            n_jobs=1,
         )
 
         # ---- Fit on the full training set ----

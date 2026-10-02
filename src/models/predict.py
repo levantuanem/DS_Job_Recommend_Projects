@@ -21,7 +21,6 @@ COLUMNS_TO_DROP = [
     "job_id", "company_id", "zip_code", "fips", "salary_id",
     "original_listed_time", "listed_time", "expiry", "closed_time",
     "job_posting_url", "application_url",
-    "title", "description", "skills_desc",
 ]
 
 NUMERIC_FEATURES = [
@@ -32,12 +31,20 @@ NUMERIC_FEATURES = [
     "is_weekend", "skill_count",
 ]
 CATEGORICAL_FEATURES = [
-    "company_name", "location", "pay_period", "formatted_work_type", "posting_domain",
+    "company_name", "location", "pay_period", "formatted_work_type",
     "application_type", "work_type", "currency", "compensation_type",
 ]
 BINARY_FEATURES = ["remote_allowed", "sponsored"]
 
 TARGET_COLUMN = "formatted_experience_level"
+
+
+def _select_prediction_rows(df: pd.DataFrame, limit=100, random_state=42) -> pd.DataFrame:
+    if limit is None or len(df) <= limit:
+        return df
+    if limit < 1:
+        raise ValueError("limit must be a positive integer or None")
+    return df.sample(n=limit, random_state=random_state).sort_index()
 
 
 def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -48,6 +55,7 @@ def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
         "company": "company_name",
         "salary_min_usd": "min_salary",
         "salary_max_usd": "max_salary",
+        "salary_avg_usd": "normalized_salary",
         "apply_type": "application_type",
         "listed_at": "listed_time",
     }
@@ -55,12 +63,27 @@ def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
         if target not in df.columns and source in df.columns:
             df[target] = df[source]
 
+    if "application_type" in df.columns:
+        application_types = df["application_type"].astype("string").str.strip()
+        application_type_aliases = {
+            "external": "OffsiteApply",
+            "linkedin easy apply": "SimpleOnsiteApply",
+            "linkedin (complex)": "ComplexOnsiteApply",
+            "unknown": "UnknownApply",
+        }
+        mapped_application_types = application_types.str.casefold().map(
+            application_type_aliases
+        )
+        df["application_type"] = mapped_application_types.fillna(application_types)
+
     if "formatted_work_type" not in df.columns and "work_type" in df.columns:
         df["formatted_work_type"] = df["work_type"]
-    if "posting_domain" not in df.columns and "url" in df.columns:
-        df["posting_domain"] = df["url"].map(
-            lambda value: urlparse(value).netloc.lower() if isinstance(value, str) else "unknown"
-        )
+    if "work_type" in df.columns:
+        work_type = df["work_type"].astype("string").str.strip().str.upper()
+        df["work_type"] = work_type.str.replace(r"[\s-]+", "_", regex=True)
+    if "formatted_work_type" in df.columns:
+        formatted_work_type = df["formatted_work_type"].astype("string").str.strip().str.upper()
+        df["formatted_work_type"] = formatted_work_type.str.replace(r"\s+", "-", regex=True)
     if "remote_allowed" not in df.columns and "remote" in df.columns:
         remote_values = df["remote"].astype(str).str.strip().str.lower()
         df["remote_allowed"] = remote_values.map(
@@ -93,8 +116,9 @@ def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
     if "skills_desc" not in df.columns:
         df["skills_desc"] = ""
 
-    if TARGET_COLUMN in df.columns:
-        df = df.drop(columns=[TARGET_COLUMN])
+    target_aliases = [column for column in (TARGET_COLUMN, "experience_level") if column in df.columns]
+    if target_aliases:
+        df = df.drop(columns=target_aliases)
 
     df = add_text_features(df)        
     df = extract_skill_features(df)     
@@ -104,7 +128,7 @@ def prepare_new_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def predict(input_path: str, output_path: str):
+def predict(input_path: str, output_path: str, limit=100, random_state=42):
     if not BEST_MODEL_PATH.exists():
         raise FileNotFoundError(
             f"{BEST_MODEL_PATH} not found. Run train.py then tune.py first:\n"
@@ -114,7 +138,9 @@ def predict(input_path: str, output_path: str):
     label_encoder = joblib.load(LABEL_ENCODER_PATH)
 
     raw_df = pd.read_csv(input_path, low_memory=False)
-    print(f"Loaded {len(raw_df)} new records from {input_path}")
+    total_records = len(raw_df)
+    raw_df = _select_prediction_rows(raw_df, limit=limit, random_state=random_state)
+    print(f"Loaded {len(raw_df)} of {total_records} records from {input_path}")
 
     x_new = prepare_new_data(raw_df)
 
@@ -141,11 +167,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predict job level for new job postings.")
     parser.add_argument(
         "--input", type=str, default=str(ROOT_DIR / "data" / "raw" / "new_postings.csv"),
-        help="Path to a CSV of new job postings (same raw columns as postings_clean.csv, minus the target).",
+        help="Path to a CSV of job postings; supported raw-column aliases are normalized before prediction.",
     )
     parser.add_argument(
         "--output", type=str, default=str(REPORTS_DIR / "predictions.csv"),
         help="Where to save predictions.",
     )
+    parser.add_argument(
+        "--limit", type=int, default=100,
+        help="Maximum number of randomly sampled rows to predict (default: 100).",
+    )
     args = parser.parse_args()
-    predict(args.input, args.output)
+    predict(args.input, args.output, limit=args.limit)

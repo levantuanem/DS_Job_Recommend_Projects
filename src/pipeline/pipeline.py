@@ -1,7 +1,7 @@
 from pathlib import Path
 from src.data.clean_data import run_pipeline as run_data_cleaning
 from src.models.utils import (get_train_test_data)
-from src.models.train import train_all_models
+from src.models.train import CV_FOLDS, train_all_models
 from src.models.tune import tune_best_model
 from src.models.evaluate import evaluate_best_model
 from src.models.predict import predict
@@ -24,7 +24,8 @@ def run_pipeline(
     apply_feature_selection=False,
     k=1000,
     prediction_input=None,
-    prediction_output=None):
+    prediction_output=None,
+    prediction_limit=100):
 
     print("=" * 70)
     print("DS JOB RECOMMENDATION - MAIN ML PIPELINE")
@@ -36,7 +37,11 @@ def run_pipeline(
     print("\n[1/7] DATA CLEANING")
     print("-" * 70)
 
-    run_data_cleaning(raw_dir=RAW_DIR, processed_dir=PROCESSED_DIR)
+    run_data_cleaning(
+        raw_dir=RAW_DIR,
+        processed_dir=PROCESSED_DIR,
+        balance_target=False,
+    )
     print("✓ Data cleaning completed.")
 
     # ========================================================
@@ -51,11 +56,7 @@ def run_pipeline(
         print(f"Selected features : {k}")
 
     X_train, X_test, y_train, y_test, label_encoder = (
-        get_train_test_data(
-            apply_feature_selection=apply_feature_selection,
-            k=k,
-            force_rebuild=True
-        )
+        get_train_test_data(force_rebuild=True)
     )
 
     print("✓ Feature engineering completed.")
@@ -79,7 +80,7 @@ def run_pipeline(
     print("Running train.py...")
     print("Model: Logistic Regression")
     print("Class imbalance: class_weight='balanced'")
-    print("Cross-validation: StratifiedKFold (5 folds)")
+    print(f"Cross-validation: StratifiedGroupKFold ({CV_FOLDS} folds, grouped by company)")
     print("Metric: Macro-F1")
 
     comparison_df = train_all_models(
@@ -139,9 +140,11 @@ def run_pipeline(
         prediction_output = Path(prediction_output)
         print(f"Input : {prediction_input}")
         print(f"Output: {prediction_output}")
+        print(f"Prediction sample limit: {prediction_limit}")
         predictions = predict(
             input_path=str(prediction_input),
-            output_path=str(prediction_output)
+            output_path=str(prediction_output),
+            limit=prediction_limit,
         )
         print("✓ Prediction completed.")
     else:
@@ -153,7 +156,8 @@ def run_pipeline(
         print(
             "python -m src.models.predict "
             "--input data/raw/new_postings.csv "
-            "--output reports/predictions.csv"
+            "--output reports/predictions.csv "
+            "--limit 100"
         )
 
     # ========================================================

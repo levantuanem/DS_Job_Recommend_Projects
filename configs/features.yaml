@@ -1,179 +1,98 @@
-# ============================================================
-# FEATURE ENGINEERING CONFIGURATION
-# Project: DS Job Recommend
-# ============================================================
-
-# ============================================================
-# 1. TARGET
-# ============================================================
 target:
   column: formatted_experience_level
 
-# ============================================================
-# 2. NUMERICAL FEATURES
-# ============================================================
 numerical:
   input_columns:
     - min_salary
     - med_salary
     - max_salary
     - normalized_salary
-    - views
-    - applies
+    - title_length
+    - description_length
+    - skills_length
+    - description_word_count
+    - skills_word_count
+    - posting_year
+    - posting_month
+    - posting_day
+    - posting_dayofweek
+    - posting_quarter
+    - posting_hour
+    - is_weekend
+    - skill_count
+    - skill_indicators_from_vocabulary
 
-  engineered_columns:
-    - salary_range
-    - log_salary
-    - application_rate
-    - view_to_apply_ratio
-
-# ============================================================
-# 3. CATEGORICAL FEATURES
-# ============================================================
 categorical:
   columns:
-    - work_type
-    - formatted_work_type
-    - remote_allowed
-    - pay_period
-    - currency
     - location
+    - pay_period
+    - formatted_work_type
     - application_type
-
-  encoding:
+    - work_type
+    - currency
+    - compensation_type
+  imputer:
+    strategy: constant
+    fill_value: unknown
+  encoder:
     method: one_hot
     handle_unknown: ignore
 
-# ============================================================
-# 4. TEXT FEATURES
-# ============================================================
-text:
+binary:
   columns:
+    - remote_allowed
+    - sponsored
+  imputer:
+    strategy: most_frequent
+
+text:
+  source_columns:
     - title
     - description
-    - skills_desc
+  vectorizers:
+    title:
+      method: tfidf
+      lowercase: true
+      stop_words: english
+      ngram_range: [1, 2]
+      max_features: 5000
+      min_df: 3
+      max_df: 0.98
+      dtype: float32
+    description:
+      method: tfidf
+      lowercase: true
+      stop_words: english
+      ngram_range: [1, 1]
+      max_features: 20000
+      min_df: 10
+      max_df: 0.95
+      dtype: float32
 
-  engineered_columns:
-    - combined_text
-    - text_length
-    - word_count
-    - sentence_count
-    - skill_count
-    - keyword_count
-    - technical_keyword_count
-    - management_keyword_count
-    - leadership_keyword_count
-
-# ============================================================
-# 5. SKILL EXTRACTION
-# ============================================================
-skills:
-  programming:
-    - python
-    - java
-    - javascript
-    - typescript
-    - c
-    - cpp
-    - csharp
-    - r
-    - scala
-    - go
-
-  database:
-    - sql
-    - mysql
-    - postgresql
-    - mongodb
-    - oracle
-
-  data_science:
-    - pandas
-    - numpy
-    - scikit-learn
-    - tensorflow
-    - pytorch
-    - machine learning
-    - deep learning
-    - data science
-
-  cloud:
-    - aws
-    - azure
-    - gcp
-    - google cloud
-
-  tools:
-    - git
-    - docker
-    - kubernetes
-    - excel
-
-  management:
-    - leadership
-    - management
-    - project management
-
-# ============================================================
-# 6. NLP / TF-IDF
-# ============================================================
-nlp:
-  lowercase: true
-  stop_words: english
-  tfidf:
-    enabled: true
-    max_features: 10000
-    ngram_range:
-      - 1
-      - 2
-    min_df: 2
-    max_df: 0.95
-    sublinear_tf: true
-
-# ============================================================
-# 7. PREPROCESSING
-# ============================================================
 preprocessing:
   numerical:
-    imputer:
-      enabled: true
-      strategy: median
+    imputer: mean
+    scaler: standard
 
-    scaler:
-      enabled: true
-      method: standard
+skills:
+  text_source: skills_desc
+  vocabulary_source: src/features/skill_extraction.py
+  output: binary_feature_per_vocabulary_entry
+  aggregate_feature: skill_count
 
-  categorical:
-    imputer:
-      enabled: true
-      strategy: most_frequent
-
-    encoder:
-      enabled: true
-      method: one_hot
-      handle_unknown: ignore
-
-# ============================================================
-# 8. FEATURE SELECTION
-# ============================================================
 selection:
-  enabled: true
-  methods:
-    variance: true
-    correlation: true
-    mutual_information: true
-  variance_threshold: 0.0
-  correlation_threshold: 0.95
+  method: select_k_best_f_classif
+  k: 1000
+  enabled_by_default: false
 
-# ============================================================
-# 9. DATA LEAKAGE
-# ============================================================
 leakage:
   target_column: formatted_experience_level
-  suspicious_features:
-    - views
-    - applies
-    - application_rate
-    - view_to_apply_ratio
-
-  check_post_publication_features: true
+  grouping_column: company_id
+  fallback_grouping_column: company_name
+  excluded_from_model:
+    - company_id
+    - company_name
+    - job_id
+    - listed_time
+    - expiry
+    - closed_time

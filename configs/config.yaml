@@ -7,45 +7,57 @@ data:
   processed_dir: data/processed
   raw_postings_path: data/raw/postings.csv
   processed_path: data/processed/postings_clean.csv
-  companies_path: data/processed/companies_clean.csv
-  salaries_path: data/processed/salaries_clean.csv
-  skills_path: data/processed/job_skills_clean.csv
 
 target:
   column: formatted_experience_level
   classes:
-    - Entry level
-    - Associate
-    - Mid-Senior level
-    - Director
-    - Executive
-    - Internship
+    - ASSOCIATE
+    - DIRECTOR
+    - ENTRY LEVEL
+    - EXECUTIVE
+    - INTERNSHIP
+    - MID-SENIOR LEVEL
 
 features:
   text_columns:
     - title
     - description
     - skills_desc
-  primary_text: description
-  numerical_columns:
+  numeric_columns:
     - min_salary
     - med_salary
     - max_salary
     - normalized_salary
-    - views
-    - applies
+    - title_length
+    - description_length
+    - skills_length
+    - description_word_count
+    - skills_word_count
+    - posting_year
+    - posting_month
+    - posting_day
+    - posting_dayofweek
+    - posting_quarter
+    - posting_hour
+    - is_weekend
+    - skill_count
   categorical_columns:
-    - work_type
-    - formatted_work_type
-    - remote_allowed
+    - location
     - pay_period
+    - formatted_work_type
+    - application_type
+    - work_type
     - currency
     - compensation_type
+  binary_columns:
+    - remote_allowed
+    - sponsored
 
 model:
-  name: random_forest
-  n_estimators: 200
+  name: logistic_regression
   random_state: 42
-  test_size: 0.2
+  test_size: 0.1
+  split_strategy: stratified_group_k_fold
+  group_column: company_id
   cv_folds: 3
-  k_fold: 3
+  scoring: f1_macro

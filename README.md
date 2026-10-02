@@ -827,6 +827,30 @@ Purpose:
 * Establish baseline performance.
 * Provide a reference point for more complex models.
 
+### Current Repository Implementation
+
+The executable pipeline currently uses Logistic Regression with L2 regularization. Its `C` parameter is selected by `RandomizedSearchCV` using Macro-F1.
+
+To estimate performance on companies not seen during training:
+
+* The holdout split uses `StratifiedGroupKFold` grouped by `company_id` (falling back to company name, then job ID when missing).
+* Training CV and hyperparameter tuning use three group-aware folds.
+* `company_name` is not passed to the model as a feature.
+* The classifier uses `class_weight="balanced"`; it does not duplicate the sparse TF-IDF matrix. The holdout data keeps its natural class distribution.
+* Text is vectorized separately: title uses word unigrams and bigrams; description uses capped unigram TF-IDF. `skills_desc` remains a source for skill indicators and counts.
+* `posting_domain` is excluded because deployment input provides a LinkedIn posting URL, while the training field came from `application_url`; they are not interchangeable.
+* The test split is for final evaluation, not repeated model selection. Use grouped CV scores and their standard deviation when comparing changes.
+
+After changing feature or split logic, regenerate the model artifacts in this order:
+
+```text
+python -m src.models.train
+python -m src.models.tune
+python -m src.models.evaluate
+```
+
+The YAML files under `configs/` document the current settings; Python modules remain the executable source of truth.
+
 ---
 
 ## 9.2 Candidate Models

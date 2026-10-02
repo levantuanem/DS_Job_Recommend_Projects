@@ -16,8 +16,9 @@ from src.models.utils import (
     BEST_MODEL_PATH,
     TUNING_RESULTS_PATH,
 )
-from src.models.predict import prepare_new_data  # dùng lại đúng pipeline của Member 3
-from src.models.train import print_oversampling_summary
+from src.models.predict import _select_prediction_rows, prepare_new_data
+from src.models.train import print_class_weight_summary
+from src.models.utils import build_logistic_pipeline
 
 DATA_PATH = ROOT_DIR / "data" / "processed" / "postings_clean.csv"
 TARGET_COLUMN = "formatted_experience_level"
@@ -115,19 +116,76 @@ def test_tuning_budget_is_lightweight():
     assert tune_module.N_ITER <= 8, "RandomizedSearchCV iteration count must be capped for faster runs."
 
 
-def test_oversampling_summary_reports_balanced_training_counts(capsys):
+def test_logistic_pipeline_uses_class_weights_without_oversampling():
+    feature_columns = [
+        "max_salary", "med_salary", "min_salary", "normalized_salary",
+        "title_length", "description_length", "skills_length",
+        "description_word_count", "skills_word_count", "posting_year",
+        "posting_month", "posting_day", "posting_dayofweek", "posting_quarter",
+        "posting_hour", "is_weekend", "skill_count", "location", "pay_period",
+        "formatted_work_type", "posting_domain", "application_type", "work_type",
+        "currency", "compensation_type", "remote_allowed", "sponsored",
+        "title", "description",
+    ]
+    model = build_logistic_pipeline(pd.DataFrame(columns=feature_columns))
+
+    assert list(model.named_steps) == ["preprocessor", "clf"]
+    assert model.named_steps["clf"].class_weight == "balanced"
+
+
+def test_prediction_adapter_keeps_text_and_maps_annual_salary():
+    raw = pd.DataFrame(
+        {
+            "title": ["Senior Data Analyst"],
+            "snippet": ["Lead reporting and analytics"],
+            "company": ["Example Co"],
+            "work_type": ["Full-time"],
+            "apply_type": ["LinkedIn Easy Apply"],
+            "url": ["https://www.linkedin.com/jobs/view/123"],
+            "salary_min_usd": [80000],
+            "salary_max_usd": [100000],
+            "salary_avg_usd": [90000],
+            "experience_level": ["Mid-Senior level"],
+        }
+    )
+
+    prepared = prepare_new_data(raw)
+
+    assert prepared.loc[0, "title"] == "Senior Data Analyst"
+    assert prepared.loc[0, "description"] == "Lead reporting and analytics"
+    assert prepared.loc[0, "work_type"] == "FULL_TIME"
+    assert prepared.loc[0, "formatted_work_type"] == "FULL-TIME"
+    assert prepared.loc[0, "application_type"] == "SimpleOnsiteApply"
+    assert prepared.loc[0, "normalized_salary"] == 90000
+    assert "experience_level" not in prepared.columns
+    assert "formatted_experience_level" not in prepared.columns
+
+
+def test_prediction_limit_samples_deterministically():
+    data = pd.DataFrame({"record_id": range(250)})
+
+    first = _select_prediction_rows(data, limit=100, random_state=42)
+    second = _select_prediction_rows(data, limit=100, random_state=42)
+
+    assert len(first) == 100
+    assert first["record_id"].tolist() == second["record_id"].tolist()
+    assert first["record_id"].is_monotonic_increasing
+    assert _select_prediction_rows(data, limit=None) is data
+
+
+def test_class_weight_summary_does_not_resample_training_rows(capsys):
     labels = ["Entry"] * 4 + ["Senior"] * 2
     label_encoder = LabelEncoder().fit(labels)
     y_train = label_encoder.transform(labels)
     x_train = pd.DataFrame({"company_name": ["Example Co"] * len(labels)})
 
-    print_oversampling_summary(x_train, y_train, label_encoder)
+    print_class_weight_summary(x_train, y_train, label_encoder)
 
     output = capsys.readouterr().out
-    after_counts = output.split("Training class distribution after oversampling:")[1]
-    assert re.search(r"Entry\s+4", after_counts)
-    assert re.search(r"Senior\s+4", after_counts)
-    assert "Sample rows after oversampling" in output
+    assert re.search(r"Entry\s+4", output)
+    assert re.search(r"Senior\s+2", output)
+    assert "class_weight='balanced'" in output
+    assert "No rows are duplicated" in output
 
 
 if __name__ == "__main__":
