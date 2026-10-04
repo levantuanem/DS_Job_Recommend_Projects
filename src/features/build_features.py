@@ -155,8 +155,9 @@ def _build_company_groups(data: pd.DataFrame) -> pd.Series:
     return groups.fillna(row_groups)
 
 
-def build_features(return_groups=False):
-    data = pd.read_csv(DATA_PATH, low_memory=False)
+def build_features(data_path=DATA_PATH, return_groups=False):
+    data_path = Path(data_path)
+    data = pd.read_csv(data_path, low_memory=False)
     print("Data loaded successfully!")
     print("Shape:", data.shape)
 

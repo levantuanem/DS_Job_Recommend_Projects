@@ -34,6 +34,9 @@ dev = [
     "pytest-cov>=4.0.0",
 ]
 
+[project.scripts]
+ds-job-recommend = "main:main"
+
 
 [tool.setuptools.packages.find]
 where = ["."]

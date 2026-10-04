@@ -98,7 +98,26 @@ Business Insights
 ```
 ---
 
-# 4. Project Architecture
+# 4. CLI Usage
+You can run the full project through a single command-line interface:
+
+```bash
+python main.py --help
+python main.py preprocess --raw-dir data/raw --processed-dir data/processed
+python main.py build-features --data-path data/processed/postings_clean.csv
+python main.py train --feature-selection --k 1000
+python main.py predict --input data/raw/new_postings.csv --output reports/predictions.csv --limit 100
+python main.py pipeline --feature-selection --prediction-input data/raw/new_postings.csv
+```
+
+You can also install the package and use the entry point directly:
+
+```bash
+pip install -e .
+ds-job-recommend --help
+```
+
+# 5. Project Architecture
 ```text
 DS_Job_Recommend_Projects/
 │
