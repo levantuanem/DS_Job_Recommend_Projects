@@ -77,11 +77,7 @@ def run_pipeline(
     # ========================================================
     print("\n[3/7] BASELINE MODEL TRAINING")
     print("-" * 70)
-    print("Running train.py...")
-    print("Model: Logistic Regression")
-    print("Class imbalance: class_weight='balanced'")
     print(f"Cross-validation: StratifiedGroupKFold ({CV_FOLDS} folds, grouped by company)")
-    print("Metric: Macro-F1")
 
     comparison_df = train_all_models(
         apply_feature_selection=apply_feature_selection,
@@ -95,37 +91,16 @@ def run_pipeline(
     # ========================================================
     print("\n[4/7] HYPERPARAMETER TUNING")
     print("-" * 70)
-    print("Running tune.py...")
-    print("Search method: RandomizedSearchCV")
-    print("Scoring: Macro-F1")
     search = tune_best_model()
     print("\n✓ Hyperparameter tuning completed.")
-    print(f"Best parameters: {search.best_params_}")
-    print(f"Best CV Macro-F1: {search.best_score_:.4f}")
 
     # ========================================================
     # STEP 5 — FINAL MODEL EVALUATION
     # ========================================================
     print("\n[5/7] FINAL MODEL EVALUATION")
     print("-" * 70)
-    print("Running evaluate.py...")
-    print("Evaluation model: models/best_model.pkl")
     metrics = evaluate_best_model()
     print("\n✓ Final model evaluation completed.")
-    if metrics is not None:
-        print("\nFinal evaluation summary:")
-        metric_keys = [
-            "train_accuracy",
-            "train_f1_macro",
-            "test_accuracy",
-            "test_f1_macro",
-            "test_f1_weighted",
-        ]
-        for key in metric_keys:
-            if key in metrics:
-                print(f"{key}: {metrics[key]:.4f}")
-        if "diagnosis" in metrics:
-            print(f"Diagnosis: {metrics['diagnosis']}")
 
     # ========================================================
     # STEP 6 — PREDICTION ON NEW DATA
@@ -138,8 +113,6 @@ def run_pipeline(
             prediction_output = REPORTS_DIR / "predictions.csv"
         prediction_input = Path(prediction_input)
         prediction_output = Path(prediction_output)
-        print(f"Input : {prediction_input}")
-        print(f"Output: {prediction_output}")
         print(f"Prediction sample limit: {prediction_limit}")
         predictions = predict(
             input_path=str(prediction_input),
@@ -161,23 +134,10 @@ def run_pipeline(
         )
 
     # ========================================================
-    # STEP 7 — PIPELINE STATUS
+    # STEP 7 — FINAL OUTPUTS
     # ========================================================
-    print("\n[7/7] PIPELINE STATUS")
+    print("\n[7/7] FINAL OUTPUTS")
     print("-" * 70)
-    print("  ✓ Data Cleaning")
-    print("  ✓ Feature Engineering")
-    print("  ✓ Preprocessing")
-    print("  ✓ Train/Test Split")
-    print("  ✓ Baseline Model Training")
-    print("  ✓ Hyperparameter Tuning")
-    print("  ✓ Final Model Evaluation")
-
-    if predictions is not None:
-        print("  ✓ Prediction on New Data")
-    else:
-        print("  - Prediction on New Data (skipped)")
-
     print("\nArtifacts generated:")
     print(f"  Models  : {MODELS_DIR}")
     print(f"  Reports : {REPORTS_DIR}")
