@@ -28,10 +28,15 @@ Quá trình phân tích được chia thành các hướng tiếp cận chi ti�
   - Lương theo năm (**YEARLY**) chiếm ưu thế (~65%), theo giờ (**HOURLY**) chiếm khoảng 33%.
   - Chỉ có **~12%** vị trí cho phép **Remote**, còn lại là On-site hoặc Hybrid.
 
-### 2.2 Tương quan & Đa cộng tuyến (Correlation & Multicollinearity)
-- Sử dụng **Ma trận Tương quan (Heatmap)** để phân tích các biến số.
-- Các cột `min_salary`, `max_salary`, và `normalized_salary` có độ tương quan rất cao. 
-- **Quyết định xử lý:** Để tránh hiện tượng đa cộng tuyến (Multicollinearity) làm nhiễu mô hình, chỉ nên giữ lại cột `normalized_salary` cho quá trình huấn luyện.
+### 2.2 Tương quan Đặc trưng & Tương quan Mục tiêu (Feature & Target Correlation)
+Quá trình phân tích tương quan được chia làm 2 góc độ trực quan qua các **Ma trận Tương quan (Heatmap)**:
+1. **Feature ↔ Feature (Kiểm tra Đa cộng tuyến):**
+   - **Cảnh báo đỏ:** Các cột `min_salary`, `max_salary`, và `normalized_salary` có độ tương quan dư thừa (r > 0.99).
+   - **Lý do xuất hiện ô N/A:** Cột `med_salary` và `min/max_salary` không bao giờ cùng xuất hiện trên một tin tuyển dụng (có cái này thì trống cái kia). Do không có dữ liệu chung để so sánh, hệ số tương quan là N/A (không thể tính), chứ không phải bằng 0.
+   - **Quyết định:** Chỉ giữ lại `normalized_salary` để tránh nhiễu mô hình.
+2. **Feature ↔ Target (Sức mạnh Dự đoán):**
+   - `normalized_salary` là đặc trưng có sức mạnh dự đoán tốt nhất (r ≈ 0.38) ➔ Giữ lại (STRONG).
+   - `views` và `applies` có mức độ tương quan yếu, nhưng cung cấp tín hiệu về hành vi tương tác ➔ Giữ lại theo dõi (WEAK/MODERATE).
 
 ### 2.3 Phân tích Biến Mục Tiêu (Feature ↔ Target Analysis)
 - Các biểu đồ **Boxplot** và **Barplot** cho thấy sự chênh lệch rõ ràng: Lương trung bình của Executive có thể gấp 3-4 lần so với Internship.
