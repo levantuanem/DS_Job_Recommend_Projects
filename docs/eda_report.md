@@ -70,7 +70,49 @@ Bảng điều khiển tổng hợp (4-Panel Overview) đã được xây dựng
 
 ---
 
-## 5. Kết Luận & Định Hướng Mô Hình Hóa (Modeling Recommendations)
+## 5. Khuyến Nghị Đặc Trưng Cho Pipeline (Feature Recommendation)
+
+Dựa trên toàn bộ kết quả phân tích EDA, các đặc trưng được phân loại rõ ràng để bàn giao cho nhóm Feature Engineering (NGƯỜI 3):
+
+### 5.1 Giữ nguyên (KEEP) — Đặc trưng hữu ích, đưa thẳng vào pipeline:
+| Đặc trưng | Lý do giữ lại |
+|---|---|
+| `normalized_salary` | Tương quan mạnh nhất với Target (r ≈ 0.38), phân biệt rõ giữa các cấp bậc |
+| `formatted_work_type` | Tỷ lệ phân bố khác nhau rõ rệt theo từng cấp bậc |
+| `remote_allowed` | Cấp càng cao thì tỷ lệ Remote càng cao, có giá trị phân loại tốt |
+| `title_length` | Độ dài tiêu đề khác nhau theo level, là tín hiệu hữu ích |
+| `desc_length` | Vị trí cấp cao có mô tả dài hơn rõ rệt |
+| `desc_word_count` | Bổ sung thêm thông tin về mức độ chi tiết của tin tuyển dụng |
+
+### 5.2 Loại bỏ (DROP) — Đặc trưng thừa hoặc quá nhiều missing:
+| Đặc trưng | Lý do loại bỏ |
+|---|---|
+| `min_salary` | Đa cộng tuyến với `normalized_salary` (r = 0.995) |
+| `max_salary` | Đa cộng tuyến với `normalized_salary` (r = 0.996) |
+| `med_salary` | Missing 94.9%, không overlap với `min_salary`/`max_salary` |
+| `closed_time` | Missing 99.1%, gần như không có dữ liệu |
+| `skills_desc` | Missing 98.0%, đã có `job_skills_clean.csv` thay thế |
+
+### 5.3 Cần biến đổi (TRANSFORM) — Trước khi đưa vào pipeline:
+| Đặc trưng | Phương pháp biến đổi | Lý do |
+|---|---|---|
+| `normalized_salary` | Log Transform + RobustScaler | Skewness = 185.75, nhiều outlier hợp lệ |
+| `views` | Log Transform + RobustScaler | Skewness > 50, phân phối lệch phải cực mạnh |
+| `applies` | Log Transform + RobustScaler | Skewness > 9, nhiều outlier |
+| `pay_period` | One-Hot Encoding | Biến phân loại dạng chuỗi |
+| `formatted_work_type` | One-Hot Encoding | Biến phân loại dạng chuỗi |
+| `remote_allowed` | Không cần — đã là 0/1 | Đã là binary, sẵn sàng cho mô hình |
+
+### 5.4 Thứ tự Pipeline đề xuất:
+1. **Drop** các cột thừa: `min_salary`, `max_salary`, `med_salary`, `closed_time`, `skills_desc`
+2. **Log Transform** cho: `normalized_salary`, `views`, `applies`
+3. **One-Hot Encoding** cho: `formatted_work_type`, `pay_period`
+4. **RobustScaler** cho toàn bộ biến số (thay vì StandardScaler)
+5. **SMOTE** hoặc `class_weight='balanced'` để xử lý mất cân bằng 34:1
+
+---
+
+## 6. Kết Luận & Định Hướng Mô Hình Hóa (Modeling Recommendations)
 
 ### Cảnh báo nghiêm trọng: Mất cân bằng dữ liệu (Class Imbalance)
 - Dữ liệu mục tiêu bị mất cân bằng trầm trọng với tỷ lệ **34:1**. Lớp đa số (Mid-Senior) sẽ áp đảo quá trình học của mô hình, khiến mô hình thiên vị lớp này và bỏ qua các lớp thiểu số (Executive, Internship).
